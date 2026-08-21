@@ -15,6 +15,12 @@
       - name: eth1
         mac: "{{ lan_mac }}"
     proxmox_ca_path: "/tmp/proxmox-ca-{{ inventory_hostname }}.pem"
+
+    # proxmox vm stuff
+    proxmox_iso_storage_path: /var/lib/vz/template/iso
+    opnsense_mirror: "https://pkg.opnsense.org/releases/26.7"
+    opnsense_iso: OPNsense-26.7-dvd-amd64.iso
+    opnsense_sha256: 95cafedda6d5b22ce832e249dc2309110fbee19f813ad78cf28bb3d387186bfb
   tasks:
     # - name: ping hosts
     #   ansible.builtin.ping:
@@ -36,15 +42,9 @@
         gateway: wan
       register: interface_update
 
-    - name: restart to pick up new nic naming
+    - name: restart to pick up new network config
       ansible.builtin.reboot:
       when: interface_update.changed
-
-    # - name: write interfaces file for fixed links & bring up internal network
-    #   ansible.builtin.template:
-    #     src: interfaces.j2
-    #     dest: /etc/network/interfaces
-    #   notify: reboot
 
     - name: get proxmox ca
       ansible.builtin.slurp:
@@ -58,45 +58,65 @@
         mode: "0600"
       delegate_to: localhost
 
-    - name: check proxmox
-      community.proxmox.proxmox_vm_info:
-      delegate_to: localhost
-      register: test
-
-    - name: print
-      ansible.builtin.debug:
-        var: test
-
-    # - name: create wan bridge
-    #   community.proxmox.proxmox_node_network:
-    #     node: "{{ inventory_hostname }}"
-    #     state: present
-    #     iface: vmbr0
-    #     iface_type: bridge
-    #     bridge_ports: eth0
-    #     cidr: 192.168.4.75/22
-    #     gateway: 192.168.4.1
-    #     autostart: true
-    #   delegate_to: localhost
-    #   notify: reboot
-    #
-    # - name: create lan bridge
-    #   community.proxmox.proxmox_node_network:
-    #     node: "{{ inventory_hostname }}"
-    #     state: present
-    #     iface: vmbr1
-    #     iface_type: bridge
-    #     bridge_ports: eth1
-    #     cidr: 10.127.0.1/24
-    #     # gateway: 10.127.0.254
-    #     autostart: true
-    #   delegate_to: localhost
-    #   notify: reboot
-
     # OPNSENSE VM INSTALL
 
-    - name: check for opnsense
-      ansible.builtin.stat
+    - name: check for opnsense iso
+      ansible.builtin.stat:
+        path: "{{ proxmox_iso_storage_path }}//{{ opnsense_iso }}"
+        get_checksum: false
+      register: opnsense_iso_stat
+      # changed_when: not opnsense_iso_stat.stat.exists
+
+    - name: download opnsense image
+      ansible.builtin.get_url:
+        url: "{{ opnsense_mirror }}/{{ opnsense_iso }}.bz2"
+        dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+        checksum: "sha256:{{ opnsense_sha256 }}"
+        mode: "644"
+      when: not opnsense_iso_stat.stat.exists
+
+    - name: decompress opnsense image
+      community.general.decompress:
+        src: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+        dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}"
+        format: bz2
+        remove: true
+      when: not opnsense_iso_stat.stat.exists
+
+    - name: create gateway vm
+      community.proxmox.proxmox_kvm:
+        name: gateway
+        node: "{{ inventory_hostname }}"
+        vmid: "{{ hostvars.gateway_vm.vm_id }}"
+        bios: seabios
+        onboot: true
+        cpu: host
+        cores: 2
+        memory: 6144 # this can be decreased to 4096 after install
+        # balloon: 4096
+        scsihw: virtio-scsi-single
+        boot: "order=scsi0;ide2"
+        ide:
+          ide2: "local:iso/{{ opnsense_iso }},media=cdrom"
+        net:
+          net0: 'virtio,bridge=vmbr0,firewall=0'
+          net1: 'virtio,bridge=vmbr1,firewall=0'
+      delegate_to: localhost
+
+    - name: create gateway disk
+      community.proxmox.proxmox_disk:
+        disk: scsi0
+        vmid: "{{ hostvars.gateway_vm.vm_id }}"
+        storage: local-lvm
+        size: "{{ hostvars.gateway_vm.vm_storage }}"
+      delegate_to: localhost
+
+    - name: start gateway vm
+      community.proxmox.proxmox_kvm:
+        name: gateway
+        node: "{{ inventory_hostname }}"
+        state: started
+      delegate_to: localhost
 
   handlers:
     - name: reboot
