@@ -1,0 +1,31 @@
+auto lo
+iface lo inet loopback
+
+
+iface eth0 inet manual
+
+auto vmbr0
+iface vmbr0 inet static
+	address {{ wan_ip }}/22
+{% if gateway == "wan" %}
+	gateway 192.168.4.1
+{% endif %}
+	bridge-ports eth0
+	bridge-stp off
+	bridge-fd 0
+
+
+iface eth1 inet manual
+
+auto vmbr1
+iface vmbr1 inet static
+	address {{ lan_ip }}/24
+{% if gateway == "lan" %}
+	gateway 10.127.0.254
+{% endif %}
+	bridge-ports eth1
+	bridge-stp off
+	bridge-fd 0
+
+
+source /etc/network/interfaces.d/*

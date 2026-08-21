@@ -1,0 +1,2 @@
+- You are not allowed to mutate the state of this repository or the systems you access without my prior consent. Focus on help me make the changes myself.
+- You can access pavo (proxmox gateway) with `ssh pavo` and from there you can access carina (truenas storage) with ssh truenas_admin@10.127.0.2

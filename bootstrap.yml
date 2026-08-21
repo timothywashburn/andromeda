@@ -1,0 +1,108 @@
+- name: proxmox bootstrap
+  hosts: gateway_node
+  module_defaults:
+    group/community.proxmox.proxmox:
+      api_host: "{{ wan_ip }}"
+      api_user: root@pam
+      api_password: "{{ proxmox_password }}"
+      # validate_certs: true
+      ca_path: "{{ proxmox_ca_path }}"
+  vars:
+    ansible_host: "{{ wan_ip }}"
+    interfaces:
+      - name: eth0
+        mac: "{{ wan_mac }}"
+      - name: eth1
+        mac: "{{ lan_mac }}"
+    proxmox_ca_path: "/tmp/proxmox-ca-{{ inventory_hostname }}.pem"
+  tasks:
+    # - name: ping hosts
+    #   ansible.builtin.ping:
+    # - ansible.builtin.debug:
+    #     var: ansible_facts
+
+    - name: write new nic link files
+      ansible.builtin.template:
+        src: systemd-nic.link.j2
+        dest: "/etc/systemd/network/10-net-{{ item.name }}.link"
+      loop: "{{ interfaces }}"
+      register: interface_update
+
+    - name: copy new interfaces configuration
+      ansible.builtin.template:
+        src: interfaces.j2
+        dest: /etc/network/interfaces
+      vars:
+        gateway: wan
+      register: interface_update
+
+    - name: restart to pick up new nic naming
+      ansible.builtin.reboot:
+      when: interface_update.changed
+
+    # - name: write interfaces file for fixed links & bring up internal network
+    #   ansible.builtin.template:
+    #     src: interfaces.j2
+    #     dest: /etc/network/interfaces
+    #   notify: reboot
+
+    - name: get proxmox ca
+      ansible.builtin.slurp:
+        src: /etc/pve/pve-root-ca.pem
+      register: proxmox_ca
+
+    - name: write ca to temp file
+      ansible.builtin.copy:
+        content: "{{ proxmox_ca.content | b64decode }}"
+        dest: "{{ proxmox_ca_path }}"
+        mode: "0600"
+      delegate_to: localhost
+
+    - name: check proxmox
+      community.proxmox.proxmox_vm_info:
+      delegate_to: localhost
+      register: test
+
+    - name: print
+      ansible.builtin.debug:
+        var: test
+
+    # - name: create wan bridge
+    #   community.proxmox.proxmox_node_network:
+    #     node: "{{ inventory_hostname }}"
+    #     state: present
+    #     iface: vmbr0
+    #     iface_type: bridge
+    #     bridge_ports: eth0
+    #     cidr: 192.168.4.75/22
+    #     gateway: 192.168.4.1
+    #     autostart: true
+    #   delegate_to: localhost
+    #   notify: reboot
+    #
+    # - name: create lan bridge
+    #   community.proxmox.proxmox_node_network:
+    #     node: "{{ inventory_hostname }}"
+    #     state: present
+    #     iface: vmbr1
+    #     iface_type: bridge
+    #     bridge_ports: eth1
+    #     cidr: 10.127.0.1/24
+    #     # gateway: 10.127.0.254
+    #     autostart: true
+    #   delegate_to: localhost
+    #   notify: reboot
+
+    # OPNSENSE VM INSTALL
+
+    - name: check for opnsense
+      ansible.builtin.stat
+
+  handlers:
+    - name: reboot
+      ansible.builtin.reboot:
+
+# - name: truenas bootstrap
+#   hosts: storage_node
+#   tasks:
+#     - ansible.builtin.ping:
