@@ -1,0 +1,7 @@
+ansible_user: truenas_admin
+
+storage_pool:
+  name: main
+  type: STRIPE
+  disks:
+    - ***REMOVED***
