@@ -1,3 +1,18 @@
+# - name: misc
+#   hosts: localhost
+#   vars:
+#     singleton_groups:
+#       - gateway_node
+#       - mgmt_node
+#       - storage_node
+#       - public
+#   tasks:
+#     - name: assert singleton groups
+#       ansible.builtin.assert:
+#         that: groups[item] | default([]) | length == 1
+#         fail_msg: "role {{ item }} must have exactly one host"
+#       loop: "{{ singleton_groups }}"
+
 # - name: proxmox bootstrap
 #   hosts: gateway_node
 #   module_defaults:
@@ -55,7 +70,7 @@
 #       ansible.builtin.copy:
 #         content: "{{ proxmox_ca.content | b64decode }}"
 #         dest: "{{ proxmox_ca_path }}"
-#         mode: "0600"
+#         mode: "600"
 #       delegate_to: localhost
 #
 #     # OPNSENSE VM INSTALL
@@ -122,42 +137,170 @@
 #     - name: reboot
 #       ansible.builtin.reboot:
 
-- name: truenas bootstrap
-  hosts: storage_node
-  vars:
-    ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway_node | first].wan_ip }}'
+# TRUENAS SETUP
+
+# - name: truenas bootstrap
+#   hosts: storage
+#   vars:
+#     ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway | first].wan_ip }}'
+#   tasks:
+#     - name: query existing disks
+#       ansible.builtin.command: midclt call disk.query
+#       register: disk_query
+#       changed_when: false
+
+#     - name: create serial to devname map
+#       ansible.builtin.set_fact:
+#         disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
+
+#     - name: query whether pool exists
+#       ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
+#       register: pool_query
+#       changed_when: false
+
+#     - name: ensure all disks exist
+#       ansible.builtin.assert:
+#         that: storage_pool.disks | difference(disk_serial_map.keys() | list) | length == 0
+#         fail_msg: disks {{ storage_pool.disks | difference(disk_serial_map.keys() | list) | join(', ') }} are missing
+
+#     - name: set pool existence
+#       ansible.builtin.set_fact:
+#         pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
+
+#     - name: create pool
+#       ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
+#       vars:
+#         pool_create_payload:
+#           name: "{{ storage_pool.name }}"
+#           topology:
+#             data:
+#               - type: "{{ storage_pool.type }}"
+#                 disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
+#       when: not pool_exists
+#       changed_when: true
+
+# - name: change relay ssh port
+#   hosts: public_relay
+#   gather_facts: false
+#   tasks:
+#     - name: set alternate port
+#       ansible.builtin.set_fact:
+#         alternate_port: "{{ ansible_port }}"
+
+#     - name: check default port
+#       ansible.builtin.wait_for:
+#         host: "{{ ansible_host }}"
+#         port: "{{ ansible_port }}"
+#         state: "started"
+#         connect_timeout: 3
+#         timeout: 5
+#       delegate_to: localhost
+#       failed_when: false
+#       register: alternate_ssh_port
+
+#     - name: change port to 22
+#       when: alternate_ssh_port.state is not defined
+#       block:
+#         - name: set port to 22
+#           ansible.builtin.set_fact:
+#             ansible_port: 22
+
+#         - name: ensure ssh.socket config directory exists
+#           ansible.builtin.file:
+#             path: /etc/systemd/system/ssh.socket.d
+#             state: directory
+#             mode: "755"
+
+#         - name: setup alternate port
+#           ansible.builtin.copy:
+#             dest: /etc/systemd/system/ssh.socket.d/override.conf
+#             mode: "644"
+#             content: |
+#               [Socket]
+#               ListenStream=
+#               ListenStream=0.0.0.0:{{ alternate_port }}
+#               ListenStream=[::]:{{ alternate_port }}
+#           register: ssh_socket_change
+
+#         - name: restart ssh socket
+#           ansible.builtin.systemd_service:
+#             name: ssh.socket
+#             state: restarted
+#             daemon_reload: true
+#           when: ssh_socket_change.changed # noqa: no-handler
+
+#         - name: change back to alternate port
+#           ansible.builtin.set_fact:
+#             ansible_port: "{{ alternate_port }}"
+
+#     - name: test connection on alternate port
+#       ansible.builtin.ping:
+
+- name: wireguard tunnel
+  hosts: public_relay:gateway
   tasks:
-    - name: query existing disks
-      ansible.builtin.command: midclt call disk.query
-      register: disk_query
-      changed_when: false
-
-    - name: create serial to devname map
-      ansible.builtin.set_fact:
-        disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
-
-    - name: query whether pool exists
-      ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
-      register: pool_query
-      changed_when: false
-
-    - name: ensure all disks exist
+    - name: assert both servers run this playbook simultaneously
       ansible.builtin.assert:
-        that: storage_pool.disks | difference(disk_serial_map.keys() | list) | length == 0
-        fail_msg: disks {{ storage_pool.disks | difference(disk_serial_map.keys() | list) | join(', ') }} are missing
+        that: ansible_play_hosts_all | length == 2
+        fail_msg: this play must be run with both hosts
+      run_once: true
 
-    - name: set pool existence
+    - name: install wireguard
+      ansible.builtin.apt:
+        name: wireguard
+        state: present
+        update_cache: true
+
+    - name: ensure wireguard directory exists
+      ansible.builtin.file:
+        path: /etc/wireguard
+        state: directory
+        mode: "700"
+
+    - name: generate wireguard keys
+      ansible.builtin.shell: 
+        cmd: set -o pipefail && umask 077 && wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
+        creates: /etc/wireguard/privatekey
+        
+    - name: read wireguard keys
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      loop:
+        - /etc/wireguard/privatekey
+        - /etc/wireguard/publickey
+      no_log: true
+      register: wg_keys_b64
+
+    - name: set wireguard key facts
       ansible.builtin.set_fact:
-        pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
+        wg_private_key: "{{ wg_keys_b64.results[0].content | b64decode | trim }}"
+        wg_public_key: "{{ wg_keys_b64.results[1].content | b64decode | trim }}"
+      no_log: true
 
-    - name: create pool
-      ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
+    - name: write wireguard config
+      ansible.builtin.template:
+        src: wg0.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        mode: "600"
       vars:
-        pool_create_payload:
-          name: "{{ storage_pool.name }}"
-          topology:
-            data:
-              - type: "{{ storage_pool.type }}"
-                disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
-      when: not pool_exists
-      changed_when: true
+        peer: "{{ hostvars[ansible_play_hosts_all | difference([inventory_hostname]) | first] }}"
+      diff: false
+      notify: restart wireguard
+
+    - name: enable wireguard
+      ansible.builtin.systemd_service:
+        name: "wg-quick@wg0"
+        enabled: true
+        state: started
+        daemon_reload: true
+          
+  handlers:
+    - name: restart wireguard
+      ansible.builtin.systemd_service:
+        name: "wg-quick@wg0"
+        state: restarted
+
+# - name: set up public relay for forwarding traffic
+#   hosts: public_relay
+#   tasks:
+#     - name: enable traffic forwarding
