@@ -56,6 +56,20 @@ then run the ansible bootstrap playbook
       - **Do you want a new certificate:** `n`
       - **Restore web GUI access defaults:** `n`
 
+- opesense setup part 2 (through opnsense ui)
+  - `ssh -L 8443:10.127.0.254:443 pavo` to port forward
+  - Select **System** > **Access** > **Users** > root user: **Create and download api keys for this user**
+  
+- opnsense setup part 3 (through opnsense ui)
+  - Select **Interfaces** > **+** (Add Interface)
+    - **Device:** `wg0` 
+    - **Apply**
+  - refresh page
+  - Select **Interfaces** > **[OPTX]** (Whichever Interface)
+    - **Enable Interface**: `selected`
+    - **Save**
+    - **Apply changes**
+
 [//]: # (maybe put this somewhere else)
 set up ansible ssh access to carina
 - `ssh-copy-id -o ProxyJump=root@192.168.4.75 truenas_admin@10.127.0.2`

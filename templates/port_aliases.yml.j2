@@ -1,0 +1,6 @@
+{% for service in services %}
+- name: svc_{{ service.name }}_ports
+  type: port
+  content: {{ [service.dest_port | string] if service.dest_port is defined else (service.ports | replace('-', ':') | split(',') | map('trim') | list) }}
+  description: ports for {{ service.name }}
+{% endfor %}

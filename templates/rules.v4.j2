@@ -1,0 +1,17 @@
+# managed by Ansible
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+{% for service in services %}
+-A PREROUTING -i {{ wan_interface }} -p {{ service.protocol }} -m multiport --dports {{ service.ports | replace(' ', '') | replace('-', ':') }} -m comment --comment "service {{ service.name }}" -j DNAT --to-destination {{ service.dest }}{{ ':' ~ service.dest_port if service.dest_port is defined else '' }}
+{% endfor %}
+-A POSTROUTING -o wg0 -m comment --comment "masquerade to tunnel" -j MASQUERADE
+COMMIT

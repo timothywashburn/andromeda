@@ -2,14 +2,8 @@
 [Interface]
 PrivateKey = {{ wg_private_key }}
 Address = {{ tunnel_ip }}/24
-{% if inventory_hostname in groups.public_relay %}
-ListenPort = 51820
-{% endif %}
+ListenPort = {{ tunnel_port}}
 
 [Peer]
 PublicKey = {{ peer.wg_public_key }}
-AllowedIPs = {{ peer.tunnel_ip }}/32
-{% if inventory_hostname in groups.gateway %}
-Endpoint = {{ peer.public_ip }}:51820
-PersistentKeepalive = 25
-{% endif %}
+AllowedIPs = {{ ([peer.tunnel_ip ~ '/32'] + homelab_networks) | join(', ') }}

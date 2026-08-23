@@ -1,1 +1,23 @@
 ansible_user: root
+ansible_python_interpreter: /usr/bin/python3
+
+static_rules:
+  - name: allow v4 lan traffic
+    interface: [lan]
+    source_net: lan
+    ip_protocol: inet
+
+homelab_networks:
+  - 10.127.0.0/24
+
+# names must be alphanumberic + underscores
+services:
+  - name: https_test2
+    protocol: tcp
+    ports: "1,70,8000-8010"
+    dest: 10.127.0.50
+  - name: asdf
+    protocol: tcp
+    ports: "80"
+    dest: 10.127.0.50
+    dest_port: 8080
