@@ -1,6 +1,16 @@
 ansible_user: root
 ansible_python_interpreter: /usr/bin/python3
 
+public_ssh_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCnboXZxkQPUckgMBTycafCebFMm7pHamiyApuD1a/Nhr5o+BRsHnZA27ngCgwNbpLlVtt18pDMRlTR3QWf0Vgu3YekYhL5zm7R/o46b9nHp1JwuRO6kfYaOlXz65KbwjHgeb4d5Nwk3V2YJq7cpiAsFibExkJO6ieY1LSEldJJP7izLmf0+RitqoyyaUdVJrNA9q1bbY9AJjo1Gs1SpXtg/BPROnTjAxwftsR68vZtOkS7ytb0ml64XQ6xLs7BI4NyQaxAbMcAjcwqu1JCF+h2fNjZJPIt0LkFaZtbcsMEPixYvBgNYXoo5sFqqFFLLwie16DWx2EG9Zql1Bx+pik3jEPginqWwAbikWpHa40VKZ3Xb2Y/5ja/OkCAs9pbirK6B6MYmaFIck4Qgyn3afdHj4qyLeronw2SGcw3mUSBZ3CSRB7oXrohBQJIHrCd9d9Dx5JJ0WRd6wcLRxx/f1BcvdDio3T696a+IhcsbPKZrmzHjX3nlLfNmHormD4zjiiBixg+pnVSEzDnbt7jmjkN76OqCa0PmY3jifuqIhqEtTKYbrPUo7t8KEKqkskCN6wS0683MqxidwEn2JoKLYZxzlPmJOSqMj28cWhkkO1FWYdVSer5LWJOqqit+RupS5fd5/5jsStJAMQy//eqShp1VbZi2RaX9Yz6RenG+qkFwQ== timothy@Timothys-MacBook-Pro.local
+
+debian_cloud_image:
+  base_url: https://cloud.debian.org/images/cloud/trixie/20260819-2575
+  file: debian-13-genericcloud-amd64-20260819-2575.qcow2
+
+netbird_domain: netbird.***REMOVED***
+acme_email: admin@***REMOVED***
+
 static_rules:
   - name: allow v4 lan traffic
     interface: [lan]
@@ -12,12 +22,21 @@ homelab_networks:
 
 # names must be alphanumberic + underscores
 services:
-  - name: https_test2
+  # - name: https_test2
+  #   protocol: tcp
+  #   ports: "1,70,8000-8010"
+  #   dest: 10.127.0.50
+  # - name: asdf
+  #   protocol: tcp
+  #   ports: "80"
+  #   dest: 10.127.0.50
+  #   dest_port: 8080
+  - name: reverse_proxy
     protocol: tcp
-    ports: "1,70,8000-8010"
-    dest: 10.127.0.50
-  - name: asdf
-    protocol: tcp
-    ports: "80"
-    dest: 10.127.0.50
-    dest_port: 8080
+    ports: "80,443"
+    dest: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
+
+proxy_routes:
+  - host: "{{ netbird_domain }}"
+    backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_dashboard_port }}"
+    grpc_backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_server_port }}"
