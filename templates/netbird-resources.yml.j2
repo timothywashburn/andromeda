@@ -1,0 +1,7 @@
+{% for network in homelab_networks %}
+- name: {{ network.name }}
+  address: {{ network.cidr }}
+  description: {{ network.name }} network
+  groups:
+    - {{ netbird_all_group_id }}
+{% endfor %}

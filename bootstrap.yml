@@ -13,478 +13,479 @@
 #         fail_msg: "role {{ item }} must have exactly one host"
 #       loop: "{{ singleton_groups }}"
 
-- name: proxmox bootstrap
-  hosts: gateway_node
-  module_defaults:
-    group/community.proxmox.proxmox:
-      api_host: "{{ wan_ip }}"
-      api_user: root@pam
-      api_password: "{{ proxmox_password }}"
-      # validate_certs: true
-      ca_path: "{{ proxmox_ca_path }}"
-  vars:
-    ansible_host: "{{ wan_ip }}"
-    interfaces:
-      - name: eth0
-        mac: "{{ wan_mac }}"
-      - name: eth1
-        mac: "{{ lan_mac }}"
-    proxmox_ca_path: "/tmp/proxmox-ca-{{ inventory_hostname }}.pem"
+# - name: proxmox bootstrap
+#   hosts: gateway_node
+#   module_defaults:
+#     group/community.proxmox.proxmox:
+#       api_host: "{{ wan_ip }}"
+#       api_user: root@pam
+#       api_password: "{{ proxmox_password }}"
+#       # validate_certs: true
+#       ca_path: "{{ proxmox_ca_path }}"
+#   vars:
+#     ansible_host: "{{ wan_ip }}"
+#     interfaces:
+#       - name: eth0
+#         mac: "{{ wan_mac }}"
+#       - name: eth1
+#         mac: "{{ lan_mac }}"
+#     proxmox_ca_path: "/tmp/proxmox-ca-{{ inventory_hostname }}.pem"
 
-    # proxmox vm stuff
-    proxmox_iso_storage_path: /var/lib/vz/template/iso
-    opnsense_mirror: "https://pkg.opnsense.org/releases/26.7"
-    opnsense_iso: OPNsense-26.7-dvd-amd64.iso
-    opnsense_sha256: 95cafedda6d5b22ce832e249dc2309110fbee19f813ad78cf28bb3d387186bfb
-  tasks:
-    - name: disable enterprise repositories
-      ansible.builtin.deb822_repository:
-        name: "{{ item.name }}"
-        types: deb
-        uris: "https://enterprise.proxmox.com/debian/{{ item.repo }}"
-        suites: "{{ ansible_distribution_release }}"
-        components: "{{ item.component }}"
-        signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
-        enabled: false
-      loop:
-        - name: pve-enterprise
-          repo: pve
-          component: pve-enterprise
-        - name: ceph
-          repo: ceph-squid
-          component: enterprise
-      notify: update apt cache
+#     # proxmox vm stuff
+#     proxmox_iso_storage_path: /var/lib/vz/template/iso
+#     opnsense_mirror: "https://pkg.opnsense.org/releases/26.7"
+#     opnsense_iso: OPNsense-26.7-dvd-amd64.iso
+#     opnsense_sha256: 95cafedda6d5b22ce832e249dc2309110fbee19f813ad78cf28bb3d387186bfb
+#   tasks:
+#     - name: disable enterprise repositories
+#       ansible.builtin.deb822_repository:
+#         name: "{{ item.name }}"
+#         types: deb
+#         uris: "https://enterprise.proxmox.com/debian/{{ item.repo }}"
+#         suites: "{{ ansible_distribution_release }}"
+#         components: "{{ item.component }}"
+#         signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+#         enabled: false
+#       loop:
+#         - name: pve-enterprise
+#           repo: pve
+#           component: pve-enterprise
+#         - name: ceph
+#           repo: ceph-squid
+#           component: enterprise
+#       notify: update apt cache
       
-    - name: add no-subscription repositories
-      ansible.builtin.deb822_repository:
-        name: "{{ item.name }}"
-        types: deb
-        uris: "http://download.proxmox.com/debian/{{ item.repo }}"
-        suites: "{{ ansible_distribution_release }}"
-        components: "{{ item.component }}"
-        signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
-      loop:
-        - name: pve-no-subscription
-          repo: pve
-          component: pve-no-subscription
-        - name: ceph-no-subscription
-          repo: ceph-squid
-          component: no-subscription
-      notify: update apt cache
+#     - name: add no-subscription repositories
+#       ansible.builtin.deb822_repository:
+#         name: "{{ item.name }}"
+#         types: deb
+#         uris: "http://download.proxmox.com/debian/{{ item.repo }}"
+#         suites: "{{ ansible_distribution_release }}"
+#         components: "{{ item.component }}"
+#         signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+#       loop:
+#         - name: pve-no-subscription
+#           repo: pve
+#           component: pve-no-subscription
+#         - name: ceph-no-subscription
+#           repo: ceph-squid
+#           component: no-subscription
+#       notify: update apt cache
 
-    - name: remove no valid subscription modal
-      ansible.builtin.replace:
-        path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-        regexp: "Ext\\.Msg\\.show\\(\\{\n(\\s*)title: gettext\\('No valid subscription'\\),"
-        replace: "void({\n\\1title: gettext('No valid subscription'),"
-        backup: true
-      notify: restart pveproxy
+#     - name: remove no valid subscription modal
+#       ansible.builtin.replace:
+#         path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+#         regexp: "Ext\\.Msg\\.show\\(\\{\n(\\s*)title: gettext\\('No valid subscription'\\),"
+#         replace: "void({\n\\1title: gettext('No valid subscription'),"
+#         backup: true
+#       notify: restart pveproxy
         
-    - name: write new nic link files
-      ansible.builtin.template:
-        src: systemd-nic.link.j2
-        dest: "/etc/systemd/network/10-net-{{ item.name }}.link"
-      loop: "{{ interfaces }}"
-      register: interface_update
+#     - name: write new nic link files
+#       ansible.builtin.template:
+#         src: systemd-nic.link.j2
+#         dest: "/etc/systemd/network/10-net-{{ item.name }}.link"
+#       loop: "{{ interfaces }}"
+#       register: interface_update
 
-    - name: copy new interfaces configuration
-      ansible.builtin.template:
-        src: interfaces.j2
-        dest: /etc/network/interfaces
-        mode: "644"
-      vars:
-        gateway: wan
-      register: interface_update
+#     - name: copy new interfaces configuration
+#       ansible.builtin.template:
+#         src: interfaces.j2
+#         dest: /etc/network/interfaces
+#         mode: "644"
+#       vars:
+#         gateway: wan
+#       register: interface_update
 
-    - name: restart to pick up new network config
-      ansible.builtin.reboot:
-      when: interface_update.changed
+#     - name: restart to pick up new network config
+#       ansible.builtin.reboot:
+#       when: interface_update.changed
 
-    - name: get proxmox ca
-      ansible.builtin.slurp:
-        src: /etc/pve/pve-root-ca.pem
-      register: proxmox_ca
+#     - name: get proxmox ca
+#       ansible.builtin.slurp:
+#         src: /etc/pve/pve-root-ca.pem
+#       register: proxmox_ca
 
-    - name: write ca to temp file
-      ansible.builtin.copy:
-        content: "{{ proxmox_ca.content | b64decode }}"
-        dest: "{{ proxmox_ca_path }}"
-        mode: "600"
-      delegate_to: localhost
+#     - name: write ca to temp file
+#       ansible.builtin.copy:
+#         content: "{{ proxmox_ca.content | b64decode }}"
+#         dest: "{{ proxmox_ca_path }}"
+#         mode: "600"
+#       delegate_to: localhost
 
-    # OPNSENSE VM INSTALL
+#     # OPNSENSE VM INSTALL
 
-    - name: check for opnsense iso
-      ansible.builtin.stat:
-        path: "{{ proxmox_iso_storage_path }}//{{ opnsense_iso }}"
-        get_checksum: false
-      register: opnsense_iso_stat
-      # changed_when: not opnsense_iso_stat.stat.exists
+#     - name: check for opnsense iso
+#       ansible.builtin.stat:
+#         path: "{{ proxmox_iso_storage_path }}//{{ opnsense_iso }}"
+#         get_checksum: false
+#       register: opnsense_iso_stat
+#       # changed_when: not opnsense_iso_stat.stat.exists
 
-    - name: download opnsense image
-      ansible.builtin.get_url:
-        url: "{{ opnsense_mirror }}/{{ opnsense_iso }}.bz2"
-        dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
-        checksum: "sha256:{{ opnsense_sha256 }}"
-        mode: "644"
-      when: not opnsense_iso_stat.stat.exists
+#     - name: download opnsense image
+#       ansible.builtin.get_url:
+#         url: "{{ opnsense_mirror }}/{{ opnsense_iso }}.bz2"
+#         dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+#         checksum: "sha256:{{ opnsense_sha256 }}"
+#         mode: "644"
+#       when: not opnsense_iso_stat.stat.exists
 
-    - name: decompress opnsense image
-      community.general.decompress:
-        src: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
-        dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}"
-        format: bz2
-        remove: true
-      when: not opnsense_iso_stat.stat.exists
+#     - name: decompress opnsense image
+#       community.general.decompress:
+#         src: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+#         dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}"
+#         format: bz2
+#         remove: true
+#       when: not opnsense_iso_stat.stat.exists
 
-    - name: create gateway vm
-      community.proxmox.proxmox_kvm:
-        name: gateway
-        node: "{{ inventory_hostname | replace('_', '-') }}"
-        vmid: "{{ hostvars.gateway_vm.vm_id }}"
-        bios: seabios
-        onboot: true
-        cpu: host
-        cores: 2
-        memory: "6144" # this can be decreased to 4096 after install
-        # balloon: 4096
-        scsihw: virtio-scsi-single
-        boot: "order=scsi0;ide2"
-        ide:
-          ide2: "local:iso/{{ opnsense_iso }},media=cdrom"
-        net:
-          net0: 'virtio,bridge=vmbr0,firewall=0'
-          net1: 'virtio,bridge=vmbr1,firewall=0'
-      delegate_to: localhost
+#     - name: create gateway vm
+#       community.proxmox.proxmox_kvm:
+#         name: gateway
+#         node: "{{ inventory_hostname | replace('_', '-') }}"
+#         vmid: "{{ hostvars[groups.gateway_vm | first].vm_id }}"
+#         bios: seabios
+#         onboot: true
+#         cpu: host
+#         cores: 2
+#         memory: "6144" # this can be decreased to 4096 after install
+#         # balloon: 4096
+#         scsihw: virtio-scsi-single
+#         boot: "order=scsi0;ide2"
+#         agent: true
+#         ide:
+#           ide2: "local:iso/{{ opnsense_iso }},media=cdrom"
+#         net:
+#           net0: 'virtio,bridge=vmbr0,firewall=0'
+#           net1: 'virtio,bridge=vmbr1,firewall=0'
+#       delegate_to: localhost
 
-    - name: create gateway disk
-      community.proxmox.proxmox_disk:
-        disk: scsi0
-        vmid: "{{ hostvars.gateway_vm.vm_id }}"
-        storage: local-lvm
-        size: "{{ hostvars.gateway_vm.vm_storage }}G"
-      delegate_to: localhost
+#     - name: create gateway disk
+#       community.proxmox.proxmox_disk:
+#         disk: scsi0
+#         vmid: "{{ hostvars[groups.gateway_vm | first].vm_id }}"
+#         storage: local-lvm
+#         size: "{{ hostvars[groups.gateway_vm | first].vm_storage_gb }}"
+#       delegate_to: localhost
 
-    - name: start gateway vm
-      community.proxmox.proxmox_kvm:
-        name: gateway
-        node: "{{ inventory_hostname }}"
-        state: started
-      delegate_to: localhost
+#     - name: start gateway vm
+#       community.proxmox.proxmox_kvm:
+#         name: gateway
+#         node: "{{ inventory_hostname }}"
+#         state: started
+#       delegate_to: localhost
 
-  handlers:
-    - name: reboot
-      ansible.builtin.reboot:
+#   handlers:
+#     - name: reboot
+#       ansible.builtin.reboot:
     
-    - name: update apt cache
-      ansible.builtin.apt:
-        update_cache: true
+#     - name: update apt cache
+#       ansible.builtin.apt:
+#         update_cache: true
     
-    - name: restart pveproxy
-      ansible.builtin.systemd_service:
-        name: pveproxy
-        state: restarted
+#     - name: restart pveproxy
+#       ansible.builtin.systemd_service:
+#         name: pveproxy
+#         state: restarted
 
-# TRUENAS SETUP
+# # TRUENAS SETUP
 
-- name: truenas bootstrap
-  hosts: storage
-  vars:
-    ansible_user: truenas_admin
-    ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway_node | first].wan_ip }}'
-  tasks:
-    - name: get network configuration config
-      ansible.builtin.command: midclt call network.configuration.config
-      register: network_config
-      changed_when: false
+# # - name: truenas bootstrap
+# #   hosts: storage
+# #   vars:
+# #     ansible_user: truenas_admin
+# #     ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway_node | first].wan_ip }}'
+# #   tasks:
+# #     - name: get network configuration config
+# #       ansible.builtin.command: midclt call network.configuration.config
+# #       register: network_config
+# #       changed_when: false
     
-    - name: set hostname
-      ansible.builtin.command: midclt call network.configuration.update '{"hostname":"{{ inventory_hostname }}"}'
-      when: (network_config.stdout | from_json).hostname != inventory_hostname
-      changed_when: true
+# #     - name: set hostname
+# #       ansible.builtin.command: midclt call network.configuration.update '{"hostname":"{{ inventory_hostname }}"}'
+# #       when: (network_config.stdout | from_json).hostname != inventory_hostname
+# #       changed_when: true
     
-    - name: set ipv4gateway
-      ansible.builtin.command: midclt call network.configuration.update '{"ipv4gateway":"{{ hostvars[groups.gateway_vm | first].ansible_host }}"}'
-      when: (network_config.stdout | from_json).ipv4gateway != hostvars[groups.gateway_vm | first].ansible_host
-      changed_when: true
+# #     - name: set ipv4gateway
+# #       ansible.builtin.command: midclt call network.configuration.update '{"ipv4gateway":"{{ hostvars[groups.gateway_vm | first].ansible_host }}"}'
+# #       when: (network_config.stdout | from_json).ipv4gateway != hostvars[groups.gateway_vm | first].ansible_host
+# #       changed_when: true
 
-    - name: query existing disks
-      ansible.builtin.command: midclt call disk.query
-      register: disk_query
-      changed_when: false
+# #     - name: query existing disks
+# #       ansible.builtin.command: midclt call disk.query
+# #       register: disk_query
+# #       changed_when: false
 
-    - name: create serial to devname map
-      ansible.builtin.set_fact:
-        disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
+# #     - name: create serial to devname map
+# #       ansible.builtin.set_fact:
+# #         disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
 
-    - name: query whether pool exists
-      ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
-      register: pool_query
-      changed_when: false
+# #     - name: query whether pool exists
+# #       ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
+# #       register: pool_query
+# #       changed_when: false
 
-    - name: ensure all disks exist
-      ansible.builtin.assert:
-        that: storage_pool.disks | difference(disk_serial_map.keys() | list) | length == 0
-        fail_msg: disks {{ storage_pool.disks | difference(disk_serial_map.keys() | list) | join(', ') }} are missing
+# #     - name: ensure all disks exist
+# #       ansible.builtin.assert:
+# #         that: storage_pool.disks | difference(disk_serial_map.keys() | list) | length == 0
+# #         fail_msg: disks {{ storage_pool.disks | difference(disk_serial_map.keys() | list) | join(', ') }} are missing
 
-    - name: set pool existence
-      ansible.builtin.set_fact:
-        pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
+# #     - name: set pool existence
+# #       ansible.builtin.set_fact:
+# #         pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
 
-    - name: create pool
-      ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
-      vars:
-        pool_create_payload:
-          name: "{{ storage_pool.name }}"
-          topology:
-            data:
-              - type: "{{ storage_pool.type }}"
-                disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
-      when: not pool_exists
-      changed_when: true
+# #     - name: create pool
+# #       ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
+# #       vars:
+# #         pool_create_payload:
+# #           name: "{{ storage_pool.name }}"
+# #           topology:
+# #             data:
+# #               - type: "{{ storage_pool.type }}"
+# #                 disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
+# #       when: not pool_exists
+# #       changed_when: true
 
-- name: change relay ssh port
-  hosts: public_relay
-  gather_facts: false
-  tasks:
-    - name: set alternate port
-      ansible.builtin.set_fact:
-        alternate_port: "{{ ansible_port }}"
+# - name: change relay ssh port
+#   hosts: public_relay
+#   gather_facts: false
+#   tasks:
+#     - name: set alternate port
+#       ansible.builtin.set_fact:
+#         alternate_port: "{{ ansible_port }}"
 
-    - name: check default port
-      ansible.builtin.wait_for:
-        host: "{{ ansible_host }}"
-        port: "{{ ansible_port }}"
-        state: "started"
-        connect_timeout: 3
-        timeout: 5
-      delegate_to: localhost
-      failed_when: false
-      register: alternate_ssh_port
+#     - name: check default port
+#       ansible.builtin.wait_for:
+#         host: "{{ ansible_host }}"
+#         port: "{{ ansible_port }}"
+#         state: "started"
+#         connect_timeout: 3
+#         timeout: 5
+#       delegate_to: localhost
+#       failed_when: false
+#       register: alternate_ssh_port
 
-    - name: change port to 22
-      when: alternate_ssh_port.state is not defined
-      block:
-        - name: set port to 22
-          ansible.builtin.set_fact:
-            ansible_port: 22
+#     - name: change port to 22
+#       when: alternate_ssh_port.state is not defined
+#       block:
+#         - name: set port to 22
+#           ansible.builtin.set_fact:
+#             ansible_port: 22
 
-        - name: ensure ssh.socket config directory exists
-          ansible.builtin.file:
-            path: /etc/systemd/system/ssh.socket.d
-            state: directory
-            mode: "755"
+#         - name: ensure ssh.socket config directory exists
+#           ansible.builtin.file:
+#             path: /etc/systemd/system/ssh.socket.d
+#             state: directory
+#             mode: "755"
 
-        - name: setup alternate port
-          ansible.builtin.copy:
-            dest: /etc/systemd/system/ssh.socket.d/override.conf
-            mode: "644"
-            content: |
-              [Socket]
-              ListenStream=
-              ListenStream=0.0.0.0:{{ alternate_port }}
-              ListenStream=[::]:{{ alternate_port }}
-          register: ssh_socket_change
+#         - name: setup alternate port
+#           ansible.builtin.copy:
+#             dest: /etc/systemd/system/ssh.socket.d/override.conf
+#             mode: "644"
+#             content: |
+#               [Socket]
+#               ListenStream=
+#               ListenStream=0.0.0.0:{{ alternate_port }}
+#               ListenStream=[::]:{{ alternate_port }}
+#           register: ssh_socket_change
 
-        - name: restart ssh socket
-          ansible.builtin.systemd_service:
-            name: ssh.socket
-            state: restarted
-            daemon_reload: true
-          when: ssh_socket_change.changed # noqa: no-handler
+#         - name: restart ssh socket
+#           ansible.builtin.systemd_service:
+#             name: ssh.socket
+#             state: restarted
+#             daemon_reload: true
+#           when: ssh_socket_change.changed # noqa: no-handler
 
-        - name: change back to alternate port
-          ansible.builtin.set_fact:
-            ansible_port: "{{ alternate_port }}"
+#         - name: change back to alternate port
+#           ansible.builtin.set_fact:
+#             ansible_port: "{{ alternate_port }}"
 
-    - name: test connection on alternate port
-      ansible.builtin.ping:
+#     - name: test connection on alternate port
+#       ansible.builtin.ping:
 
-- name: gateway vm wireguard instance intial setup
-  hosts: gateway_vm
-  gather_facts: false
-  module_defaults:
-    group/oxlorg.opnsense.all:
-      firewall: "{{ hostvars[inventory_hostname].ansible_host }}"
-      api_key: "{{ opnsense_api_key }}"
-      api_secret: "{{ opnsense_api_secret }}"
-      ssl_verify: false
-  tasks:
-    - name: configure opnsense
-      delegate_to: "{{ groups.gateway_node | first }}"
-      vars:
-        ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-        wg_servers: "{{ (wg_instances.data.values() | list) if (wg_instances.data | default([])) is mapping else (wg_instances.data | default([])) }}"
-      block:
-        - ansible.builtin.ping:
+# - name: gateway vm wireguard instance intial setup
+#   hosts: gateway_vm
+#   gather_facts: false
+#   module_defaults:
+#     group/oxlorg.opnsense.all:
+#       firewall: "{{ hostvars[inventory_hostname].ansible_host }}"
+#       api_key: "{{ opnsense_api_key }}"
+#       api_secret: "{{ opnsense_api_secret }}"
+#       ssl_verify: false
+#   tasks:
+#     - name: configure opnsense
+#       delegate_to: "{{ groups.gateway_node | first }}"
+#       vars:
+#         ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+#         wg_servers: "{{ (wg_instances.data.values() | list) if (wg_instances.data | default([])) is mapping else (wg_instances.data | default([])) }}"
+#       block:
+#         - ansible.builtin.ping:
           
-        # - name: install opnsense dependencies to gateway node
-        #   ansible.builtin.apt:
-        #     name: python3-httpx
-        #     state: present
-        #     update_cache: true
+#         # - name: install opnsense dependencies to gateway node
+#         #   ansible.builtin.apt:
+#         #     name: python3-httpx
+#         #     state: present
+#         #     update_cache: true
 
-        - name: enable wireguard
-          oxlorg.opnsense.wireguard_general:
-            enabled: true
+#         - name: enable wireguard
+#           oxlorg.opnsense.wireguard_general:
+#             enabled: true
 
-        - name: read existing wireguard server instances
-          oxlorg.opnsense.list:
-            target: wireguard_server
-          register: wg_instances
-          no_log: true
+#         - name: read existing wireguard server instances
+#           oxlorg.opnsense.list:
+#             target: wireguard_server
+#           register: wg_instances
+#           no_log: true
         
-        # - ansible.builtin.debug:
-        #     var: wg_instances
+#         # - ansible.builtin.debug:
+#         #     var: wg_instances
 
-        - name: set public key fact if exists
-          ansible.builtin.set_fact:
-            wg_private_key: "{{ (found | first).privkey }}"
-            wg_public_key: "{{ (found | first).pubkey }}"
-          vars:
-            found: "{{ wg_servers | selectattr('name', 'eq', 'tunnel') | list }}"
-          when: found | length > 0
-          no_log: true
+#         - name: set public key fact if exists
+#           ansible.builtin.set_fact:
+#             wg_private_key: "{{ (found | first).privkey }}"
+#             wg_public_key: "{{ (found | first).pubkey }}"
+#           vars:
+#             found: "{{ wg_servers | selectattr('name', 'eq', 'tunnel') | list }}"
+#           when: found | length > 0
+#           no_log: true
         
-        - name: create a keypair directly with api
-          oxlorg.opnsense.raw:
-            module: wireguard
-            controller: server
-            command: keyPair
-            action: get
-          register: wg_keypair
-          no_log: true
-          when: wg_public_key is undefined
+#         - name: create a keypair directly with api
+#           oxlorg.opnsense.raw:
+#             module: wireguard
+#             controller: server
+#             command: keyPair
+#             action: get
+#           register: wg_keypair
+#           no_log: true
+#           when: wg_public_key is undefined
             
-        - name: set keys as facts
-          ansible.builtin.set_fact:
-            wg_private_key: "{{ wg_keypair.response.privkey }}"
-            wg_public_key: "{{ wg_keypair.response.pubkey }}"
-          no_log: true
-          when: wg_keypair is not skipped
+#         - name: set keys as facts
+#           ansible.builtin.set_fact:
+#             wg_private_key: "{{ wg_keypair.response.privkey }}"
+#             wg_public_key: "{{ wg_keypair.response.pubkey }}"
+#           no_log: true
+#           when: wg_keypair is not skipped
 
-        # this should be able to auto generate the keypair but there is a bug in the ansible collection
-        - name: create wireguard server
-          oxlorg.opnsense.wireguard_server:
-            name: tunnel
-            private_key: "{{ wg_private_key }}"
-            public_key: "{{ wg_public_key }}"
-            allowed_ips:
-              - "{{ tunnel_ip }}/32"
-            link_peers: false
-          notify: reload wireguard
+#         # this should be able to auto generate the keypair but there is a bug in the ansible collection
+#         - name: create wireguard server
+#           oxlorg.opnsense.wireguard_server:
+#             name: tunnel
+#             private_key: "{{ wg_private_key }}"
+#             public_key: "{{ wg_public_key }}"
+#             allowed_ips:
+#               - "{{ tunnel_ip }}/32"
+#             link_peers: false
+#           notify: reload wireguard
 
-  handlers:
-    - name: reload wireguard
-      delegate_to: "{{ groups.gateway_node | first }}"
-      vars:
-        ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-      oxlorg.opnsense.reload:
-        target: wireguard
+#   handlers:
+#     - name: reload wireguard
+#       delegate_to: "{{ groups.gateway_node | first }}"
+#       vars:
+#         ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+#       oxlorg.opnsense.reload:
+#         target: wireguard
   
-- name: public relay wireguard setup
-  hosts: public_relay
-  vars:
-    peer: "{{ hostvars[groups.gateway_vm | first] }}"
-  tasks:
-    - name: assert gateway vm public key
-      ansible.builtin.assert:
-        that: peer.wg_public_key is defined
-        fail_msg: gateway vm must have procured a public key
+# - name: public relay wireguard setup
+#   hosts: public_relay
+#   vars:
+#     peer: "{{ hostvars[groups.gateway_vm | first] }}"
+#   tasks:
+#     - name: assert gateway vm public key
+#       ansible.builtin.assert:
+#         that: peer.wg_public_key is defined
+#         fail_msg: gateway vm must have procured a public key
     
-    - name: install wireguard
-      ansible.builtin.apt:
-        name: wireguard
-        state: present
-        update_cache: true
+#     - name: install wireguard
+#       ansible.builtin.apt:
+#         name: wireguard
+#         state: present
+#         update_cache: true
 
-    - name: ensure wireguard directory exists
-      ansible.builtin.file:
-        path: /etc/wireguard
-        state: directory
-        mode: "700"
+#     - name: ensure wireguard directory exists
+#       ansible.builtin.file:
+#         path: /etc/wireguard
+#         state: directory
+#         mode: "700"
 
-    - name: generate wireguard keys
-      ansible.builtin.shell: 
-        cmd: set -o pipefail && umask 077 && wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
-        creates: /etc/wireguard/privatekey
+#     - name: generate wireguard keys
+#       ansible.builtin.shell: 
+#         cmd: set -o pipefail && umask 077 && wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
+#         creates: /etc/wireguard/privatekey
         
-    - name: read wireguard keys
-      ansible.builtin.slurp:
-        src: "{{ item }}"
-      loop:
-        - /etc/wireguard/privatekey
-        - /etc/wireguard/publickey
-      no_log: true
-      register: wg_keys_b64
+#     - name: read wireguard keys
+#       ansible.builtin.slurp:
+#         src: "{{ item }}"
+#       loop:
+#         - /etc/wireguard/privatekey
+#         - /etc/wireguard/publickey
+#       no_log: true
+#       register: wg_keys_b64
 
-    - name: set wireguard key facts
-      ansible.builtin.set_fact:
-        wg_private_key: "{{ wg_keys_b64.results[0].content | b64decode | trim }}"
-        wg_public_key: "{{ wg_keys_b64.results[1].content | b64decode | trim }}"
-      no_log: true
+#     - name: set wireguard key facts
+#       ansible.builtin.set_fact:
+#         wg_private_key: "{{ wg_keys_b64.results[0].content | b64decode | trim }}"
+#         wg_public_key: "{{ wg_keys_b64.results[1].content | b64decode | trim }}"
+#       no_log: true
 
-    - name: write wireguard config
-      ansible.builtin.template:
-        src: wg0.conf.j2
-        dest: /etc/wireguard/wg0.conf
-        mode: "600"
-      diff: false
-      notify: restart wireguard
+#     - name: write wireguard config
+#       ansible.builtin.template:
+#         src: wg0.conf.j2
+#         dest: /etc/wireguard/wg0.conf
+#         mode: "600"
+#       diff: false
+#       notify: restart wireguard
 
-    - name: enable wireguard
-      ansible.builtin.systemd_service:
-        name: "wg-quick@wg0"
-        enabled: true
-        state: started
-        daemon_reload: true
+#     - name: enable wireguard
+#       ansible.builtin.systemd_service:
+#         name: "wg-quick@wg0"
+#         enabled: true
+#         state: started
+#         daemon_reload: true
 
-  handlers:
-    - name: restart wireguard
-      ansible.builtin.systemd:
-        name: wg-quick@wg0
-        state: restarted
+#   handlers:
+#     - name: restart wireguard
+#       ansible.builtin.systemd:
+#         name: wg-quick@wg0
+#         state: restarted
 
-- name: gateway vm wireguard instance final setup
-  hosts: gateway_vm
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-    peer: "{{ hostvars[groups.public_relay | first] }}"
-    api_delegate: "{{ groups.gateway_node | first }}"
-  module_defaults:
-    group/oxlorg.opnsense.all:
-      firewall: "{{ hostvars[inventory_hostname].ansible_host }}"
-      api_key: "{{ opnsense_api_key }}"
-      api_secret: "{{ opnsense_api_secret }}"
-      ssl_verify: false
-  tasks:
-    - name: assert public relay public key
-      ansible.builtin.assert:
-        that: peer.wg_public_key is defined
-        fail_msg: public relay must have procured a public key
+# - name: gateway vm wireguard instance final setup
+#   hosts: gateway_vm
+#   vars:
+#     ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+#     peer: "{{ hostvars[groups.public_relay | first] }}"
+#     api_delegate: "{{ groups.gateway_node | first }}"
+#   module_defaults:
+#     group/oxlorg.opnsense.all:
+#       firewall: "{{ hostvars[inventory_hostname].ansible_host }}"
+#       api_key: "{{ opnsense_api_key }}"
+#       api_secret: "{{ opnsense_api_secret }}"
+#       ssl_verify: false
+#   tasks:
+#     - name: assert public relay public key
+#       ansible.builtin.assert:
+#         that: peer.wg_public_key is defined
+#         fail_msg: public relay must have procured a public key
     
-    - name: create wireguard peer
-      oxlorg.opnsense.wireguard_peer:
-        name: tunnel
-        public_key: "{{ peer.wg_public_key }}"
-        allowed_ips:
-          - "{{ peer.tunnel_ip }}/32"
-        endpoint: "{{ peer.public_ip }}"
-        port: "{{ peer.tunnel_port }}"
-        keepalive: 20
-        link_servers: true
-        servers:
-          - tunnel
-      delegate_to: "{{ api_delegate }}"
-      notify: reload wireguard
+#     - name: create wireguard peer
+#       oxlorg.opnsense.wireguard_peer:
+#         name: tunnel
+#         public_key: "{{ peer.wg_public_key }}"
+#         allowed_ips:
+#           - "{{ peer.tunnel_ip }}/32"
+#         endpoint: "{{ peer.public_ip }}"
+#         port: "{{ peer.tunnel_port }}"
+#         keepalive: 20
+#         link_servers: true
+#         servers:
+#           - tunnel
+#       delegate_to: "{{ api_delegate }}"
+#       notify: reload wireguard
 
-  handlers:
-    - name: reload wireguard
-      delegate_to: "{{ api_delegate }}"
-      vars:
-        ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-      oxlorg.opnsense.reload:
-        target: wireguard
+#   handlers:
+#     - name: reload wireguard
+#       delegate_to: "{{ api_delegate }}"
+#       vars:
+#         ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+#       oxlorg.opnsense.reload:
+#         target: wireguard
 
 
 - name: configure opnsense after wireguard tunnel install
@@ -502,6 +503,11 @@
       api_secret: "{{ opnsense_api_secret }}"
       ssl_verify: false
   tasks:
+    - name: install qemu guest agent
+      oxlorg.opnsense.package:
+        name: os-qemu-guest-agent
+        action: install
+
     - name: lockout guard # ai assisted here lol
       vars:
         reserved_ports: "{{ [hostvars[groups.public_relay | first].ansible_port, hostvars[groups.public_relay | first].tunnel_port] }}"
@@ -546,6 +552,20 @@
         multi_control:
           purge_unconfigured: true
       notify: apply firewall aliases
+    
+    - name: create internal dns override
+      oxlorg.opnsense.unbound_host:
+        hostname: "{{ netbird_domain.split('.') | first }}"
+        domain: "{{ netbird_domain.split('.')[1:] | join('.') }}"
+        record_type: A
+        value: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
+        description: netbird control plane
+        match_fields:
+          - hostname
+          - domain
+          - record_type
+        reload: false
+      notify: apply unbound
   
   handlers:
     - name: apply firewall aliases
@@ -561,59 +581,66 @@
         controller: filter
         command: apply
         action: post
-
-- name: forward public relay traffic
-  hosts: public_relay
-  tasks:
-    - name: set up ip forwarding
-      ansible.builtin.copy:
-        dest: /etc/sysctl.d/99-ip-forwarding.conf
-        content: "net.ipv4.ip_forward = 1\n"
-        mode: "644"
-      register: sysctl_conf
     
-    - name: apply sysctl
-      ansible.builtin.command: sysctl --system
-      when: sysctl_conf.changed # noqa: no-handler
-      changed_when: true
-    
-    - name: install iptables-persistent
-      ansible.builtin.apt:
-        name: iptables-persistent
-        state: present
-        update_cache: true
-    
-    - name: create iptable rules
-      ansible.builtin.template:
-        src: rules.v4.j2
-        dest: /etc/iptables/rules.v4
-        mode: "600"
-        validate: iptables-restore --test %s
-      notify: reload iptables
+    - name: apply unbound
+      oxlorg.opnsense.raw:
+        module: unbound
+        controller: service
+        command: reconfigure
+        action: post
 
-  handlers:
-    - name: reload iptables
-      ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
-      changed_when: true
+# - name: forward public relay traffic
+#   hosts: public_relay
+#   tasks:
+#     - name: set up ip forwarding
+#       ansible.builtin.copy:
+#         dest: /etc/sysctl.d/99-ip-forwarding.conf
+#         content: "net.ipv4.ip_forward = 1\n"
+#         mode: "644"
+#       register: sysctl_conf
+    
+#     - name: apply sysctl
+#       ansible.builtin.command: sysctl --system
+#       when: sysctl_conf.changed # noqa: no-handler
+#       changed_when: true
+    
+#     - name: install iptables-persistent
+#       ansible.builtin.apt:
+#         name: iptables-persistent
+#         state: present
+#         update_cache: true
+    
+#     - name: create iptable rules
+#       ansible.builtin.template:
+#         src: rules.v4.j2
+#         dest: /etc/iptables/rules.v4
+#         mode: "600"
+#         validate: iptables-restore --test %s
+#       notify: reload iptables
 
-- name: switch proxmox gateway
-  hosts: gateway_node
-  vars:
-    ansible_host: "{{ wan_ip }}"
-  tasks:
-    - name: copy new interfaces configuration
-      ansible.builtin.template:
-        src: interfaces.j2
-        dest: /etc/network/interfaces
-        mode: "644"
-      vars:
-        gateway: lan
-      notify: update interface
+#   handlers:
+#     - name: reload iptables
+#       ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
+#       changed_when: true
+
+# - name: switch proxmox gateway
+#   hosts: gateway_node
+#   vars:
+#     ansible_host: "{{ wan_ip }}"
+#   tasks:
+#     - name: copy new interfaces configuration
+#       ansible.builtin.template:
+#         src: interfaces.j2
+#         dest: /etc/network/interfaces
+#         mode: "644"
+#       vars:
+#         gateway: lan
+#       notify: update interface
       
-  handlers:
-    - name: update interface
-      ansible.builtin.command: ifreload -a
-      changed_when: true
+#   handlers:
+#     - name: update interface
+#       ansible.builtin.command: ifreload -a
+#       changed_when: true
 
 - name: prepare debian cloud image
   hosts: gateway_node
@@ -696,9 +723,249 @@
       ansible.builtin.wait_for_connection:
         timeout: 60
 
-- name: setup netbird management
-  hosts: gateway_node # this needs to be changed to mgmt but requires some structural changes I'll make later
+- name: setup netbird management and client
+  hosts: netbird_vm
   vars:
-    ansible_host: "{{ wan_ip }}"
+    netbird_all_group_id: "{{ (netbird_groups.data | selectattr('name', 'eq', 'All') | first).id }}"
+    netbird_router_peer_id: "{{ (netbird_peers.data | selectattr('hostname', 'eq', inventory_hostname | replace('_', '-')) | first).id }}"
+  module_defaults:
+    group/community.ansible_netbird.netbird:
+      api_url: "https://{{ netbird_domain }}"
+      api_token: "{{ netbird_pat }}"
   tasks:
-    - ansible.builtin.ping:
+    - name: add docker repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/debian
+        suites: "{{ ansible_distribution_release }}"
+        components: stable
+        signed_by: https://download.docker.com/linux/debian/gpg
+
+    - name: install packages
+      ansible.builtin.apt:
+        name:
+          - qemu-guest-agent
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+    - name: enable qemu guest agent
+      ansible.builtin.systemd:
+        name: qemu-guest-agent
+        enabled: true
+        state: started
+    
+    - name: create netbird directory
+      ansible.builtin.file:
+        path: /etc/netbird
+        state: directory
+        mode: "755"
+
+    - name: write netbird compose file
+      ansible.builtin.template:
+        src: netbird-compose.yml.j2
+        dest: /etc/netbird/docker-compose.yml
+        mode: "600"
+      notify: restart netbird
+
+    - name: write netbird server config
+      ansible.builtin.template:
+        src: netbird-config.yaml.j2
+        dest: /etc/netbird/config.yaml
+        mode: "600"
+      diff: false
+      notify: restart netbird
+
+    - name: write netbird dashboard env
+      ansible.builtin.template:
+        src: netbird-dashboard.env.j2
+        dest: /etc/netbird/dashboard.env
+        mode: "600"
+      notify: restart netbird
+
+    - name: start netbird
+      community.docker.docker_compose_v2:
+        project_src: /etc/netbird
+        state: present
+    
+    - name: flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: wait for netbird server
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/oauth2/.well-known/openid-configuration"
+        method: GET
+        status_code: [200, 502, 503]
+      register: netbird_ready
+      until: netbird_ready.status == 200
+      retries: 10
+      delay: 2
+    
+    - name: create netbird admin account
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/api/setup"
+        method: POST
+        body_format: json
+        body:
+          email: "{{ netbird_admin_email }}"
+          name: "{{ netbird_admin_name }}"
+          password: "{{ netbird_admin_password }}"
+          create_pat: true
+          pat_expire_in: 365
+      register: netbird_admin_account
+      when: netbird_pat is not defined
+      no_log: true
+
+    - name: save netbird personal access token
+      ansible.builtin.copy:
+        content: |
+          # written by Ansible ({{ '%Y-%m-%d' | strftime }})
+          netbird_pat: "{{ netbird_admin_account.json.personal_access_token }}"
+        dest: "{{ inventory_dir }}/group_vars/all/netbird_pat.yml"
+        mode: "600"
+      delegate_to: localhost
+      when: netbird_admin_account is not skipped
+      no_log: true
+      diff: false
+
+    - name: load netbird personal access token
+      ansible.builtin.set_fact:
+        netbird_pat: "{{ netbird_admin_account.json.personal_access_token }}"
+      no_log: true
+      when: netbird_admin_account is not skipped
+    
+    # client setup
+
+    - name: add netbird repository
+      ansible.builtin.deb822_repository:
+        name: netbird
+        types: deb
+        uris: https://pkgs.netbird.io/debian
+        suites: stable
+        components: main
+        signed_by: https://pkgs.netbird.io/debian/public.key
+      
+    - name: install netbird client
+      ansible.builtin.apt:
+        name: netbird
+        state: present
+        update_cache: true
+
+    - name: set up ip forwarding
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-ip-forward.conf
+        content: "net.ipv4.ip_forward = 1\n"
+        mode: "644"
+      register: sysctl_conf
+
+    - name: apply sysctl
+      ansible.builtin.command: sysctl --system
+      when: sysctl_conf.changed
+      changed_when: true
+
+    - name: check netbird peer status
+      ansible.builtin.command: netbird status
+      register: netbird_peer_status
+      changed_when: false
+      failed_when: false
+
+    - name: create temp setup key for enrollment
+      community.ansible_netbird.netbird_setup_key:
+        name: "{{ ansible_date_time.epoch }}-enroll-{{ inventory_hostname }}"
+        key_type: one-off
+        expires_in: 3600
+        state: present
+      register: netbird_setup_key
+      delegate_to: localhost
+      when: "'Management: Connected' not in netbird_peer_status.stdout"
+        
+    - name: enroll netbird peer
+      ansible.builtin.command: netbird up
+      environment:
+        NB_MANAGEMENT_URL: "https://{{ netbird_domain }}"
+        NB_SETUP_KEY: "{{ netbird_setup_key.setup_key.key }}"
+      when: "'Management: Connected' not in netbird_peer_status.stdout"
+      changed_when: true
+
+    - name: get netbird peers
+      community.ansible_netbird.netbird_info:
+        resource: peers
+      delegate_to: localhost
+      register: netbird_peers
+      
+    - name: get netbird groups
+      community.ansible_netbird.netbird_info:
+        resource: groups
+      delegate_to: localhost
+      register: netbird_groups
+      
+    - ansible.builtin.debug:
+        var: netbird_peers
+    - ansible.builtin.debug:
+        var: netbird_groups
+
+    - name: add homelab machines to netbird network
+      community.ansible_netbird.netbird_network:
+        name: homelab
+        description: internal homelab network
+        routers:
+          - peer: "{{ netbird_router_peer_id }}"
+            masquerade: true
+        resources: "{{ lookup('ansible.builtin.template', 'netbird-resources.yml.j2') | from_yaml | default([], true) }}"
+      delegate_to: localhost
+    
+  handlers:
+    - name: restart netbird
+      community.docker.docker_compose_v2:
+        project_src: /etc/netbird
+        state: restarted
+
+- name: setup reverse proxy
+  hosts: rev_proxy_vm
+  tasks:
+    - name: add caddy repository
+      ansible.builtin.deb822_repository:
+        name: caddy
+        types: deb
+        uris: https://dl.cloudsmith.io/public/caddy/stable/deb/debian
+        suites: "{{ ansible_distribution_release }}"
+        components: main
+        signed_by: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    
+    - name: install packages
+      ansible.builtin.apt:
+        name:
+          - qemu-guest-agent
+          - caddy
+        state: present
+        update_cache: true
+    
+    - name: enable qemu guest agent
+      ansible.builtin.systemd:
+        name: qemu-guest-agent
+        enabled: true
+        state: started
+
+    - name: write caddyfile
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+        mode: "644"
+        validate: caddy validate --adapter caddyfile --config %s
+      notify: reload caddy
+    
+    - name: enable caddy
+      ansible.builtin.systemd:
+        name: caddy
+        enabled: true
+        state: started
+  
+  handlers:
+    - name: reload caddy
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded

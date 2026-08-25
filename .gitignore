@@ -2,4 +2,5 @@
 .idea/
 .DS_Store
 secrets.yml
+netbird_pat.yml
 ignore-*

@@ -8,9 +8,6 @@ debian_cloud_image:
   base_url: https://cloud.debian.org/images/cloud/trixie/20260819-2575
   file: debian-13-genericcloud-amd64-20260819-2575.qcow2
 
-netbird_domain: netbird.***REMOVED***
-acme_email: admin@***REMOVED***
-
 static_rules:
   - name: allow v4 lan traffic
     interface: [lan]
@@ -18,7 +15,8 @@ static_rules:
     ip_protocol: inet
 
 homelab_networks:
-  - 10.127.0.0/24
+  - name: main
+    cidr: 10.127.0.0/24
 
 # names must be alphanumberic + underscores
 services:

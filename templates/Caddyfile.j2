@@ -1,0 +1,20 @@
+# managed by Ansible
+{
+    email {{ acme_email }}
+}
+
+{% for route in proxy_routes %}
+{{ route.host}} {
+{% if route.grpc_backend is defined %}
+    @grpc header Content-Type application/grpc*
+    reverse_proxy @grpc h2c://{{ route.grpc_backend }}
+
+    @backend path /relay* /ws-proxy/* /api/* /oauth2/*
+    reverse_proxy @backend {{ route.grpc_backend }}
+
+    reverse_proxy /* {{ route.backend }}
+{% else %}
+    reverse_proxy {{ route.backend }}
+{% endif %}
+}
+{% endfor %}

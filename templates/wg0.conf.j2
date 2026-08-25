@@ -6,4 +6,4 @@ ListenPort = {{ tunnel_port}}
 
 [Peer]
 PublicKey = {{ peer.wg_public_key }}
-AllowedIPs = {{ ([peer.tunnel_ip ~ '/32'] + homelab_networks) | join(', ') }}
+AllowedIPs = {{ ([peer.tunnel_ip ~ '/32'] + (homelab_networks | map('attribute', 'cidr') | list)) | join(', ') }}

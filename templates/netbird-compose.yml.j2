@@ -1,0 +1,43 @@
+# managed by Ansible
+services:
+  dashboard:
+    image: netbirdio/dashboard:{{ netbird_dashboard_version }}
+    container_name: netbird-dashboard
+    restart: unless-stopped
+    networks: [netbird]
+    ports:
+      - "{{ ansible_host }}:{{ netbird_dashboard_port }}:80"
+    env_file:
+      - ./dashboard.env
+    logging:
+      driver: json-file
+      options:
+        max-size: 500m
+        max-file: "2"
+
+  server:
+    image: netbirdio/netbird-server:{{ netbird_server_version }}
+    container_name: netbird-server
+    restart: unless-stopped
+    networks: [netbird]
+    ports:
+      - "{{ ansible_host }}:{{ netbird_server_port }}:80"
+    environment:
+      NB_ENABLE_STUN: "false"
+      NB_SETUP_PAT_ENABLED: "true"
+    command: ["--config", "/etc/netbird/config.yaml"]
+    volumes:
+      - netbird_data:/var/lib/netbird
+      - ./config.yaml:/etc/netbird/config.yaml
+    logging:
+      driver: json-file
+      options:
+        max-size: 500m
+        max-file: "2"
+
+volumes:
+  netbird_data:
+
+networks:
+  netbird:
+    driver: bridge

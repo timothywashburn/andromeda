@@ -70,6 +70,9 @@ then run the ansible bootstrap playbook
     - **Save**
     - **Apply changes**
 
+- opnsense setup whenever (through opnsense ui)
+  - install `qemu-guest-agent` then restart vm
+
 [//]: # (maybe put this somewhere else)
 set up ansible ssh access to carina
 - `ssh-copy-id -o ProxyJump=root@192.168.4.75 truenas_admin@10.127.0.2`
