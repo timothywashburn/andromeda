@@ -2,7 +2,7 @@ auto lo
 iface lo inet loopback
 
 
-iface eth0 inet manual
+iface wan0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
@@ -10,12 +10,12 @@ iface vmbr0 inet static
 {% if gateway == "wan" %}
 	gateway 192.168.4.1
 {% endif %}
-	bridge-ports eth0
+	bridge-ports wan0
 	bridge-stp off
 	bridge-fd 0
 
 
-iface eth1 inet manual
+iface lan0 inet manual
 
 auto vmbr1
 iface vmbr1 inet static
@@ -23,7 +23,7 @@ iface vmbr1 inet static
 {% if gateway == "lan" %}
 	gateway 10.127.0.254
 {% endif %}
-	bridge-ports eth1
+	bridge-ports lan0
 	bridge-stp off
 	bridge-fd 0
 

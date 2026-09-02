@@ -25,9 +25,9 @@
 #   vars:
 #     ansible_host: "{{ wan_ip }}"
 #     interfaces:
-#       - name: eth0
+#       - name: wan0
 #         mac: "{{ wan_mac }}"
-#       - name: eth1
+#       - name: lan0
 #         mac: "{{ lan_mac }}"
 #     proxmox_ca_path: "/tmp/proxmox-ca-{{ inventory_hostname }}.pem"
 
@@ -86,6 +86,7 @@
 #         dest: "/etc/systemd/network/10-net-{{ item.name }}.link"
 #       loop: "{{ interfaces }}"
 #       register: interface_update
+#       notify: update initramfs
 
 #     - name: copy new interfaces configuration
 #       ansible.builtin.template:
@@ -173,18 +174,22 @@
 #         state: started
 #       delegate_to: localhost
 
-#   handlers:
-#     - name: reboot
-#       ansible.builtin.reboot:
+  # handlers:
+  #   - name: reboot
+  #     ansible.builtin.reboot:
     
-#     - name: update apt cache
-#       ansible.builtin.apt:
-#         update_cache: true
+  #   - name: update apt cache
+  #     ansible.builtin.apt:
+  #       update_cache: true
     
-#     - name: restart pveproxy
-#       ansible.builtin.systemd_service:
-#         name: pveproxy
-#         state: restarted
+  #   - name: restart pveproxy
+  #     ansible.builtin.systemd_service:
+  #       name: pveproxy
+  #       state: restarted
+
+  #   - name: update initramfs
+  #     ansible.builtin.command: update-initramfs -u -k all
+  #     changed_when: true
 
 # # TRUENAS SETUP
 
@@ -503,10 +508,11 @@
       api_secret: "{{ opnsense_api_secret }}"
       ssl_verify: false
   tasks:
-    - name: install qemu guest agent
-      oxlorg.opnsense.package:
-        name: os-qemu-guest-agent
-        action: install
+    # this won't work read ignore-opnsense-chunked-bug.md
+    # - name: install qemu guest agent
+    #   oxlorg.opnsense.package:
+    #     name: os-qemu-guest-agent
+    #     action: install
 
     - name: lockout guard # ai assisted here lol
       vars:
@@ -555,16 +561,17 @@
     
     - name: create internal dns override
       oxlorg.opnsense.unbound_host:
-        hostname: "{{ netbird_domain.split('.') | first }}"
-        domain: "{{ netbird_domain.split('.')[1:] | join('.') }}"
+        hostname: "{{ item.host.split('.') | first }}"
+        domain: "{{ item.host.split('.')[1:] | join('.') }}"
         record_type: A
         value: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
-        description: netbird control plane
+        description: "{{ item.host }} local dns record"
         match_fields:
           - hostname
           - domain
           - record_type
         reload: false
+      loop: "{{ proxy_routes }}"
       notify: apply unbound
   
   handlers:
@@ -589,58 +596,58 @@
         command: reconfigure
         action: post
 
-# - name: forward public relay traffic
-#   hosts: public_relay
-#   tasks:
-#     - name: set up ip forwarding
-#       ansible.builtin.copy:
-#         dest: /etc/sysctl.d/99-ip-forwarding.conf
-#         content: "net.ipv4.ip_forward = 1\n"
-#         mode: "644"
-#       register: sysctl_conf
+- name: forward public relay traffic
+  hosts: public_relay
+  tasks:
+    - name: set up ip forwarding
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-ip-forwarding.conf
+        content: "net.ipv4.ip_forward = 1\n"
+        mode: "644"
+      register: sysctl_conf
     
-#     - name: apply sysctl
-#       ansible.builtin.command: sysctl --system
-#       when: sysctl_conf.changed # noqa: no-handler
-#       changed_when: true
+    - name: apply sysctl
+      ansible.builtin.command: sysctl --system
+      when: sysctl_conf.changed # noqa: no-handler
+      changed_when: true
     
-#     - name: install iptables-persistent
-#       ansible.builtin.apt:
-#         name: iptables-persistent
-#         state: present
-#         update_cache: true
+    - name: install iptables-persistent
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: present
+        update_cache: true
     
-#     - name: create iptable rules
-#       ansible.builtin.template:
-#         src: rules.v4.j2
-#         dest: /etc/iptables/rules.v4
-#         mode: "600"
-#         validate: iptables-restore --test %s
-#       notify: reload iptables
+    - name: create iptable rules
+      ansible.builtin.template:
+        src: rules.v4.j2
+        dest: /etc/iptables/rules.v4
+        mode: "600"
+        validate: iptables-restore --test %s
+      notify: reload iptables
 
-#   handlers:
-#     - name: reload iptables
-#       ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
-#       changed_when: true
+  handlers:
+    - name: reload iptables
+      ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
+      changed_when: true
 
-# - name: switch proxmox gateway
-#   hosts: gateway_node
-#   vars:
-#     ansible_host: "{{ wan_ip }}"
-#   tasks:
-#     - name: copy new interfaces configuration
-#       ansible.builtin.template:
-#         src: interfaces.j2
-#         dest: /etc/network/interfaces
-#         mode: "644"
-#       vars:
-#         gateway: lan
-#       notify: update interface
+- name: switch proxmox gateway
+  hosts: gateway_node
+  vars:
+    ansible_host: "{{ wan_ip }}"
+  tasks:
+    - name: copy new interfaces configuration
+      ansible.builtin.template:
+        src: interfaces.j2
+        dest: /etc/network/interfaces
+        mode: "644"
+      vars:
+        gateway: lan
+      notify: update interface
       
-#   handlers:
-#     - name: update interface
-#       ansible.builtin.command: ifreload -a
-#       changed_when: true
+  handlers:
+    - name: update interface
+      ansible.builtin.command: ifreload -a
+      changed_when: true
 
 - name: prepare debian cloud image
   hosts: gateway_node

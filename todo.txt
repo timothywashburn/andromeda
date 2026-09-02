@@ -1,4 +1,3 @@
 put qemu guest agent on all vms
 add dns server like pihole with 1.1.1.1
 
-change pavo to run on internal net
