@@ -38,3 +38,5 @@ proxy_routes:
   - host: "{{ netbird_domain }}"
     backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_dashboard_port }}"
     grpc_backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_server_port }}"
+  - host: "ai.***REMOVED***"
+    backend: "10.127.0.100:8080"

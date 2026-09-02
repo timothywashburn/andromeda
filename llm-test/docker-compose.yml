@@ -1,0 +1,94 @@
+# DEPLOYED as /srv/llm/docker-compose.yml on VM 100 (testing, 10.127.0.100).
+# Edit here, then: scp to the VM and `docker compose up -d llama`
+services:
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-server
+    restart: unless-stopped
+    ports:
+      - "8081:8080"          # OpenAI-compatible API (OpenCode targets this)
+    volumes:
+      - /srv/llm/models:/models:ro
+    environment:
+      - LLAMA_ARG_ENDPOINT_METRICS=1
+    # NOTE: list form (not "command: >") so these can carry comments.
+    # Quote every value - bare `on` would become YAML boolean true.
+    command:
+      - -m
+      - /models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+      - --alias
+      - qwen3.5-4b            # model id clients must use; matches opencode.json
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - -ngl
+      - "99"                  # full GPU offload
+      - -c
+      - "200000"              # shared KV pool, NOT per-slot. rounds up to 200192
+      - -fa
+      - "on"                  # flash attention; required for quantized V cache
+      - --cache-type-k
+      - q8_0                  # 8-bit KV. llama.cpp has no fp8 type; q8_0 is the 8-bit option
+      - --cache-type-v
+      - q8_0
+      - --jinja               # REQUIRED - tool-calling breaks without it
+      - --metrics
+
+      # ---- llama.cpp defaults, stated explicitly for visibility ----
+      # These match the built-in defaults. Present only so they are easy to find
+      # and tune later; removing them changes nothing.
+      - -b
+      - "2048"                # DEFAULT. logical batch size
+      - -ub
+      - "512"                 # DEFAULT. physical batch size - the main driver of
+                              # compute-buffer VRAM. Lowering it (e.g. 256) frees
+                              # VRAM for more context, at slower prompt processing.
+
+      # ---- deliberately NOT set ----
+      # -np / --parallel   default -1 (auto) -> 4 slots here.
+      #   DO NOT set this to "4" to be explicit: --kv-unified is only auto-enabled
+      #   "if number of slots is auto". Setting -np explicitly turns it OFF, giving
+      #   each slot its own KV cache (~4x VRAM) and an immediate OOM at load.
+      #   To pin it you must pass BOTH: -np 4 --kv-unified
+      # -n / --predict     default -1 (unlimited); clients set their own max_tokens.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s     # model load from disk into VRAM
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    depends_on:
+      llama:
+        condition: service_healthy
+    ports:
+      - "8080:8080"          # UI; rev-proxy (10.127.0.253) fronts this for TLS
+    volumes:
+      - open-webui-data:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://llama:8080/v1
+      - OPENAI_API_KEY=none          # set if llama-server is started with --api-key
+      - ENABLE_OLLAMA_API=false      # we are not running ollama
+      - WEBUI_AUTH=true
+      # REQUIRED at 4GB RAM with no swap: stops Open WebUI loading a local
+      # sentence-transformers model (~0.6-1.0GB). Trade-off: RAG/document
+      # chat will not be usefully functional. Normal chat is unaffected.
+      - RAG_EMBEDDING_ENGINE=openai
+    # Hardening option if RAM proves tight (contains an OOM to this container
+    # instead of the whole VM); may crash-loop if genuinely too low:
+    # mem_limit: 1500m
+
+volumes:
+  open-webui-data:
