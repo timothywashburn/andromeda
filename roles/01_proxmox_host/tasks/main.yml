@@ -1,0 +1,75 @@
+- name: ensure marker directory exists
+  ansible.builtin.file:
+    path: "/andromeda/markers"
+    state: directory
+    mode: "755"
+
+- name: disable enterprise repositories
+  ansible.builtin.deb822_repository:
+    name: "{{ item.name }}"
+    types: deb
+    uris: "https://enterprise.proxmox.com/debian/{{ item.repo }}"
+    suites: "{{ ansible_distribution_release }}"
+    components: "{{ item.component }}"
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    enabled: false
+  loop:
+    - name: pve-enterprise
+      repo: pve
+      component: pve-enterprise
+    - name: ceph
+      repo: ceph-squid
+      component: enterprise
+  notify: update apt cache
+  
+- name: add no-subscription repositories
+  ansible.builtin.deb822_repository:
+    name: "{{ item.name }}"
+    types: deb
+    uris: "http://download.proxmox.com/debian/{{ item.repo }}"
+    suites: "{{ ansible_distribution_release }}"
+    components: "{{ item.component }}"
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+  loop:
+    - name: pve-no-subscription
+      repo: pve
+      component: pve-no-subscription
+    - name: ceph-no-subscription
+      repo: ceph-squid
+      component: no-subscription
+  notify: update apt cache
+
+# ai assisted
+- name: remove no valid subscription modal
+  ansible.builtin.replace:
+    path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+    regexp: "Ext\\.Msg\\.show\\(\\{\n(\\s*)title: gettext\\('No valid subscription'\\),"
+    replace: "void({\n\\1title: gettext('No valid subscription'),"
+    backup: true
+  notify: restart pveproxy
+    
+- name: write new nic link files
+  ansible.builtin.template:
+    src: systemd-nic.link.j2
+    dest: "/etc/systemd/network/10-net-{{ item.name }}.link"
+    mode: "644"
+  loop: "{{ interfaces }}"
+  notify:
+    - update initramfs
+    - reboot
+
+- name: check if host has already switched to vm gateway
+  ansible.builtin.stat:
+    path: /andromeda/markers/lan-gateway
+  register: lan_gateway_marker
+
+- name: copy new interfaces configuration
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    mode: "644"
+  vars:
+    gateway: wan
+  notify:
+    - update interfaces
+  when: not lan_gateway_marker.stat.exists

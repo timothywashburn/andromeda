@@ -1,0 +1,25 @@
+- name: set up ip forwarding
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-ip-forwarding.conf
+    content: "net.ipv4.ip_forward = 1\n"
+    mode: "644"
+  register: sysctl_conf
+
+- name: apply sysctl
+  ansible.builtin.command: sysctl --system
+  when: sysctl_conf.changed # noqa: no-handler
+  changed_when: true
+
+- name: install iptables-persistent
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+    update_cache: true
+
+- name: create iptable rules
+  ansible.builtin.template:
+    src: rules.v4.j2
+    dest: /etc/iptables/rules.v4
+    mode: "600"
+    validate: iptables-restore --test %s
+  notify: reload iptables

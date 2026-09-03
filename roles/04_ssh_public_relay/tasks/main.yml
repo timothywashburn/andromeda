@@ -1,0 +1,52 @@
+- name: set alternate port
+  ansible.builtin.set_fact:
+    alternate_port: "{{ ansible_port }}"
+
+- name: check default port
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ ansible_port }}"
+    state: "started"
+    connect_timeout: 3
+    timeout: 5
+  delegate_to: localhost
+  failed_when: false
+  register: alternate_ssh_port
+
+- name: change port to 22
+  when: alternate_ssh_port.state is not defined
+  block:
+    - name: set port to 22
+      ansible.builtin.set_fact:
+        ansible_port: 22
+
+    - name: ensure ssh.socket config directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/ssh.socket.d
+        state: directory
+        mode: "755"
+
+    - name: setup alternate port
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ssh.socket.d/override.conf
+        mode: "644"
+        content: |
+          [Socket]
+          ListenStream=
+          ListenStream=0.0.0.0:{{ alternate_port }}
+          ListenStream=[::]:{{ alternate_port }}
+      register: ssh_socket_change
+
+    - name: restart ssh socket
+      ansible.builtin.systemd_service:
+        name: ssh.socket
+        state: restarted
+        daemon_reload: true
+      when: ssh_socket_change.changed # noqa: no-handler
+
+    - name: change back to alternate port
+      ansible.builtin.set_fact:
+        ansible_port: "{{ alternate_port }}"
+
+- name: test connection on alternate port
+  ansible.builtin.ping:

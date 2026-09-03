@@ -1,0 +1,6 @@
+- name: reload wireguard
+  delegate_to: "{{ groups.gateway_node | first }}"
+  vars:
+    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+  oxlorg.opnsense.reload:
+    target: wireguard

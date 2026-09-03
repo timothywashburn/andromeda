@@ -1,0 +1,15 @@
+ansible_managed: managed by Ansible
+
+# possibly opnsense vm only
+opnsense_module_defaults:
+  firewall: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+  api_key: "{{ opnsense_api_key }}"
+  api_secret: "{{ opnsense_api_secret }}"
+  ssl_verify: false
+
+local_proxmox_ca_path: "/tmp/proxmox-ca-{{ groups.gateway_node | first }}.pem"
+proxmox_module_defaults:
+  api_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+  api_user: root@pam
+  api_password: "{{ proxmox_password }}"
+  ca_path: "{{ local_proxmox_ca_path }}"

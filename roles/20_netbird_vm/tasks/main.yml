@@ -1,0 +1,184 @@
+- name: add docker repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_distribution_release }}"
+    components: stable
+    signed_by: https://download.docker.com/linux/debian/gpg
+
+- name: install packages
+  ansible.builtin.apt:
+    name:
+      - qemu-guest-agent
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+- name: enable qemu guest agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: create netbird directory
+  ansible.builtin.file:
+    path: /etc/netbird
+    state: directory
+    mode: "755"
+
+- name: write netbird compose file
+  ansible.builtin.template:
+    src: netbird-compose.yml.j2
+    dest: /etc/netbird/docker-compose.yml
+    mode: "600"
+  notify: restart netbird
+
+- name: write netbird server config
+  ansible.builtin.template:
+    src: netbird-config.yaml.j2
+    dest: /etc/netbird/config.yaml
+    mode: "600"
+  diff: false
+  notify: restart netbird
+
+- name: write netbird dashboard env
+  ansible.builtin.template:
+    src: netbird-dashboard.env.j2
+    dest: /etc/netbird/dashboard.env
+    mode: "600"
+  notify: restart netbird
+
+- name: start netbird
+  community.docker.docker_compose_v2:
+    project_src: /etc/netbird
+    state: present
+
+- name: flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: wait for netbird server
+  ansible.builtin.uri:
+    url: "https://{{ netbird_domain }}/oauth2/.well-known/openid-configuration"
+    method: GET
+    status_code: [200, 502, 503]
+  register: netbird_ready
+  until: netbird_ready.status == 200
+  retries: 10
+  delay: 2
+
+- name: create netbird admin account
+  ansible.builtin.uri:
+    url: "https://{{ netbird_domain }}/api/setup"
+    method: POST
+    body_format: json
+    body:
+      email: "{{ netbird_admin_email }}"
+      name: "{{ netbird_admin_name }}"
+      password: "{{ netbird_admin_password }}"
+      create_pat: true
+      pat_expire_in: 365
+  register: netbird_admin_account
+  when: netbird_pat is not defined
+  no_log: true
+
+- name: save netbird personal access token
+  ansible.builtin.copy:
+    content: |
+      # written by Ansible ({{ '%Y-%m-%d' | strftime }})
+      netbird_pat: "{{ netbird_admin_account.json.personal_access_token }}"
+    dest: "{{ inventory_dir }}/group_vars/all/netbird_pat.yml"
+    mode: "600"
+  delegate_to: localhost
+  when: netbird_admin_account is not skipped
+  no_log: true
+  diff: false
+
+- name: load netbird personal access token
+  ansible.builtin.set_fact:
+    netbird_pat: "{{ netbird_admin_account.json.personal_access_token }}"
+  no_log: true
+  when: netbird_admin_account is not skipped
+
+# client setup
+
+- name: add netbird repository
+  ansible.builtin.deb822_repository:
+    name: netbird
+    types: deb
+    uris: https://pkgs.netbird.io/debian
+    suites: stable
+    components: main
+    signed_by: https://pkgs.netbird.io/debian/public.key
+  
+- name: install netbird client
+  ansible.builtin.apt:
+    name: netbird
+    state: present
+    update_cache: true
+
+- name: set up ip forwarding
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-ip-forward.conf
+    content: "net.ipv4.ip_forward = 1\n"
+    mode: "644"
+  register: sysctl_conf
+
+- name: apply sysctl
+  ansible.builtin.command: sysctl --system
+  when: sysctl_conf.changed
+  changed_when: true
+
+- name: check netbird peer status
+  ansible.builtin.command: netbird status
+  register: netbird_peer_status
+  changed_when: false
+  failed_when: false
+
+- name: create temp setup key for enrollment
+  community.ansible_netbird.netbird_setup_key:
+    name: "{{ ansible_date_time.epoch }}-enroll-{{ inventory_hostname }}"
+    key_type: one-off
+    expires_in: 3600
+    state: present
+  register: netbird_setup_key
+  delegate_to: localhost
+  when: "'Management: Connected' not in netbird_peer_status.stdout"
+    
+- name: enroll netbird peer
+  ansible.builtin.command: netbird up
+  environment:
+    NB_MANAGEMENT_URL: "https://{{ netbird_domain }}"
+    NB_SETUP_KEY: "{{ netbird_setup_key.setup_key.key }}"
+  when: "'Management: Connected' not in netbird_peer_status.stdout"
+  changed_when: true
+
+- name: get netbird peers
+  community.ansible_netbird.netbird_info:
+    resource: peers
+  delegate_to: localhost
+  register: netbird_peers
+  
+- name: get netbird groups
+  community.ansible_netbird.netbird_info:
+    resource: groups
+  delegate_to: localhost
+  register: netbird_groups
+  
+- ansible.builtin.debug:
+    var: netbird_peers
+- ansible.builtin.debug:
+    var: netbird_groups
+
+- name: add homelab machines to netbird network
+  community.ansible_netbird.netbird_network:
+    name: homelab
+    description: internal homelab network
+    routers:
+      - peer: "{{ netbird_router_peer_id }}"
+        masquerade: true
+    resources: "{{ lookup('ansible.builtin.template', 'netbird-resources.yml.j2') | from_yaml | default([], true) }}"
+  delegate_to: localhost

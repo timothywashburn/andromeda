@@ -1,0 +1,49 @@
+- name: get network configuration config
+  ansible.builtin.command: midclt call network.configuration.config
+  register: network_config
+  changed_when: false
+
+- name: set hostname
+  ansible.builtin.command: midclt call network.configuration.update '{"hostname":"{{ inventory_hostname }}"}'
+  when: (network_config.stdout | from_json).hostname != inventory_hostname
+  changed_when: true
+
+- name: set ipv4gateway
+  ansible.builtin.command: midclt call network.configuration.update '{"ipv4gateway":"{{ hostvars[groups.gateway_vm | first].ansible_host }}"}'
+  when: (network_config.stdout | from_json).ipv4gateway != hostvars[groups.gateway_vm | first].ansible_host
+  changed_when: true
+
+- name: query existing disks
+  ansible.builtin.command: midclt call disk.query
+  register: disk_query
+  changed_when: false
+
+- name: create serial to devname map
+  ansible.builtin.set_fact:
+    disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
+
+- name: query whether pool exists
+  ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
+  register: pool_query
+  changed_when: false
+
+- name: ensure all disks exist
+  ansible.builtin.assert:
+    that: storage_pool.disks | difference(disk_serial_map.keys() | list) | length == 0
+    fail_msg: disks {{ storage_pool.disks | difference(disk_serial_map.keys() | list) | join(', ') }} are missing
+
+- name: set pool existence
+  ansible.builtin.set_fact:
+    pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
+
+- name: create pool
+  ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
+  vars:
+    pool_create_payload:
+      name: "{{ storage_pool.name }}"
+      topology:
+        data:
+          - type: "{{ storage_pool.type }}"
+            disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
+  when: not pool_exists
+  changed_when: true

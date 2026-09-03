@@ -1,0 +1,58 @@
+- name: check for opnsense iso
+  ansible.builtin.stat:
+    path: "{{ proxmox_iso_storage_path }}//{{ opnsense_iso }}"
+    get_checksum: false
+  register: opnsense_iso_stat
+  # changed_when: not opnsense_iso_stat.stat.exists
+
+- name: download opnsense image
+  ansible.builtin.get_url:
+    url: "{{ opnsense_mirror }}/{{ opnsense_iso }}.bz2"
+    dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+    checksum: "sha256:{{ opnsense_sha256 }}"
+    mode: "644"
+  when: not opnsense_iso_stat.stat.exists
+
+- name: decompress opnsense image
+  community.general.decompress:
+    src: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}.bz2"
+    dest: "{{ proxmox_iso_storage_path }}/{{ opnsense_iso }}"
+    format: bz2
+    remove: true
+  when: not opnsense_iso_stat.stat.exists
+
+- name: create gateway vm
+  community.proxmox.proxmox_kvm:
+    name: gateway
+    node: "{{ inventory_hostname | replace('_', '-') }}"
+    vmid: "{{ hostvars[groups.gateway_vm | first].vm_id }}"
+    bios: seabios
+    onboot: true
+    cpu: host
+    cores: 2
+    memory: "6144" # this can be decreased to 4096 after install
+    # balloon: 4096
+    scsihw: virtio-scsi-single
+    boot: "order=scsi0;ide2"
+    agent: true
+    ide:
+      ide2: "local:iso/{{ opnsense_iso }},media=cdrom"
+    net:
+      net0: 'virtio,bridge=vmbr0,firewall=0'
+      net1: 'virtio,bridge=vmbr1,firewall=0'
+  delegate_to: localhost
+
+- name: create gateway disk
+  community.proxmox.proxmox_disk:
+    disk: scsi0
+    vmid: "{{ hostvars[groups.gateway_vm | first].vm_id }}"
+    storage: local-lvm
+    size: "{{ hostvars[groups.gateway_vm | first].vm_storage_gb }}"
+  delegate_to: localhost
+
+- name: start gateway vm
+  community.proxmox.proxmox_kvm:
+    name: gateway
+    node: "{{ inventory_hostname }}"
+    state: started
+  delegate_to: localhost

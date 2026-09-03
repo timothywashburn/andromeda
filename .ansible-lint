@@ -3,3 +3,5 @@ skip_list:
   - name[missing]
   - yaml[trailing-spaces]
   - yaml[line-length]
+  - var-naming[no-role-prefix]
+  - args[module]

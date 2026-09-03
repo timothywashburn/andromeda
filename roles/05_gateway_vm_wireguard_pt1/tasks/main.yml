@@ -1,0 +1,63 @@
+- name: configure opnsense
+  delegate_to: "{{ groups.gateway_node | first }}"
+  vars:
+    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+    wg_servers: "{{ (wg_instances.data.values() | list) if (wg_instances.data | default([])) is mapping else (wg_instances.data | default([])) }}"
+  block:
+    - ansible.builtin.ping:
+      
+    # - name: install opnsense dependencies to gateway node
+    #   ansible.builtin.apt:
+    #     name: python3-httpx
+    #     state: present
+    #     update_cache: true
+
+    - name: enable wireguard
+      oxlorg.opnsense.wireguard_general:
+        enabled: true
+
+    - name: read existing wireguard server instances
+      oxlorg.opnsense.list:
+        target: wireguard_server
+      register: wg_instances
+      no_log: true
+    
+    # - ansible.builtin.debug:
+    #     var: wg_instances
+
+    - name: set public key fact if exists
+      ansible.builtin.set_fact:
+        wg_private_key: "{{ (found | first).privkey }}"
+        wg_public_key: "{{ (found | first).pubkey }}"
+      vars:
+        found: "{{ wg_servers | selectattr('name', 'eq', 'tunnel') | list }}"
+      when: found | length > 0
+      no_log: true
+    
+    - name: create a keypair directly with api
+      oxlorg.opnsense.raw:
+        module: wireguard
+        controller: server
+        command: keyPair
+        action: get
+      register: wg_keypair
+      no_log: true
+      when: wg_public_key is undefined
+        
+    - name: set keys as facts
+      ansible.builtin.set_fact:
+        wg_private_key: "{{ wg_keypair.response.privkey }}"
+        wg_public_key: "{{ wg_keypair.response.pubkey }}"
+      no_log: true
+      when: wg_keypair is not skipped
+
+    # this should be able to auto generate the keypair but there is a bug in the ansible collection
+    - name: create wireguard server
+      oxlorg.opnsense.wireguard_server:
+        name: tunnel
+        private_key: "{{ wg_private_key }}"
+        public_key: "{{ wg_public_key }}"
+        allowed_ips:
+          - "{{ tunnel_ip }}/32"
+        link_peers: false
+      notify: reload wireguard

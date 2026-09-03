@@ -1,0 +1,51 @@
+- name: assert gateway vm public key
+  ansible.builtin.assert:
+    that: peer.wg_public_key is defined
+    fail_msg: gateway vm must have procured a public key
+
+- name: install wireguard
+  ansible.builtin.apt:
+    name: wireguard
+    state: present
+    update_cache: true
+
+- name: ensure wireguard directory exists
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    mode: "700"
+
+- name: generate wireguard keys
+  ansible.builtin.shell: 
+    cmd: set -o pipefail && umask 077 && wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
+    creates: /etc/wireguard/privatekey
+    
+- name: read wireguard keys
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop:
+    - /etc/wireguard/privatekey
+    - /etc/wireguard/publickey
+  no_log: true
+  register: wg_keys_b64
+
+- name: set wireguard key facts
+  ansible.builtin.set_fact:
+    wg_private_key: "{{ wg_keys_b64.results[0].content | b64decode | trim }}"
+    wg_public_key: "{{ wg_keys_b64.results[1].content | b64decode | trim }}"
+  no_log: true
+
+- name: write wireguard config
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    mode: "600"
+  diff: false
+  notify: restart wireguard
+
+- name: enable wireguard
+  ansible.builtin.systemd_service:
+    name: "wg-quick@wg0"
+    enabled: true
+    state: started
+    daemon_reload: true

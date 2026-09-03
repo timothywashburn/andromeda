@@ -1,0 +1,65 @@
+# this won't work read ignore-opnsense-chunked-bug.md
+# - name: install qemu guest agent
+#   oxlorg.opnsense.package:
+#     name: os-qemu-guest-agent
+#     action: install
+
+- name: lockout guard # ai assisted here lol
+  vars:
+    reserved_ports: "{{ [hostvars[groups.public_relay | first].ansible_port, hostvars[groups.public_relay | first].tunnel_port] }}"
+    claimed_port_ranges: "{{ services | map(attribute='ports') | map('string') | map('replace', ' ', '') | map('split', ',') | flatten | map('split', '-') | list }}"
+  ansible.builtin.assert:
+    that:
+      - item.0 | int < (item.1 | first | int) or item.0 | int > (item.1 | last | int)
+    fail_msg: "port {{ item.0 }}  '{{ item.1 | join('-') }}'"
+    quiet: true
+  loop: "{{ reserved_ports | product(claimed_port_ranges) | list }}"
+  loop_control:
+    label: "{{ item.0 }} vs {{ item.1 | join('-') }}"
+
+- name: ensure port remapping is valid
+  ansible.builtin.assert:
+    that:
+      - "',' not in (item.ports | string)"
+      - "'-' not in (item.ports | string)"
+    fail_msg: "service {{ item.name }} contains a destination port and multiple source ports"
+  loop: "{{ services | selectattr('dest_port', 'defined') | list }}"
+
+- name: create port aliases
+  oxlorg.opnsense.alias_multi:
+    aliases: "{{ port_aliases }}"
+  notify: apply firewall aliases
+    
+- name: manage tunnel firewall rules
+  oxlorg.opnsense.rule_multi:
+    match_fields:
+      - description
+    rules: "{{ static_rules + service_rules }}"
+    multi_control:
+      override:
+        action: pass
+        direction: in
+      purge_unconfigured: true
+  notify: apply firewall rules
+  
+- name: purge unused aliases
+  oxlorg.opnsense.alias_multi:
+    aliases: "{{ port_aliases }}"
+    multi_control:
+      purge_unconfigured: true
+  notify: apply firewall aliases
+
+- name: create internal dns override
+  oxlorg.opnsense.unbound_host:
+    hostname: "{{ item.host.split('.') | first }}"
+    domain: "{{ item.host.split('.')[1:] | join('.') }}"
+    record_type: A
+    value: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
+    description: "{{ item.host }} local dns record"
+    match_fields:
+      - hostname
+      - domain
+      - record_type
+    reload: false
+  loop: "{{ proxy_routes }}"
+  notify: apply unbound

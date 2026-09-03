@@ -1,0 +1,9 @@
+- name: "deploy interface configuration: {{ gateway }}"
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    mode: "644"
+  vars:
+    gateway: "{{ gateway }}"
+  notify:
+    - update interfaces
