@@ -1,7 +1,6 @@
 - name: configure opnsense
   delegate_to: "{{ groups.gateway_node | first }}"
   vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
     wg_servers: "{{ (wg_instances.data.values() | list) if (wg_instances.data | default([])) is mapping else (wg_instances.data | default([])) }}"
   block:
     - ansible.builtin.ping:

@@ -42,7 +42,7 @@
     state: resized
     size: "{{ vm_storage_gb }}G"
   delegate_to: localhost
-  when: disk_import.changed # noqa: no-handler
+  when: disk_import.changed
 
 - name: start vm
   community.proxmox.proxmox_kvm:

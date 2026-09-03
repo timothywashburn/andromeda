@@ -5,28 +5,35 @@
 #         name: bootstrap
 #         tasks_from: 00_inventory_verification.yml
 
+- name: configure gateway host for bootstrapping
+  hosts: gateway_node
+  gather_facts: false
+  tasks:
+    - name: set gateway host to non internal ip
+      ansible.builtin.set_fact:
+        ansible_host: "{{ wan_ip }}"
+
+- name: configure internal nodes for bootstrapping
+  hosts: generic_deb_vms:storage
+  gather_facts: false
+  tasks:
+    - ansible.builtin.set_fact:
+        ansible_ssh_common_args: >-
+          -J root@{{ hostvars[groups.gateway_node | first].ansible_host }}
+          -o StrictHostKeyChecking=accept-new
+
 - name: gateway host prep
   hosts: gateway_node
-  vars:
-    ansible_host: "{{ wan_ip }}"
-    interfaces:
-      - name: wan0
-        mac: "{{ wan_mac }}"
-      - name: lan0
-        mac: "{{ lan_mac }}"
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 01_proxmox_host.yml
-
 
 - name: proxmox bootstrap
   hosts: gateway_node
   module_defaults:
     group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}" 
   vars:
-    ansible_host: "{{ wan_ip }}"
-
     # proxmox vm stuff
     proxmox_iso_storage_path: /var/lib/vz/template/iso
     opnsense_mirror: "https://pkg.opnsense.org/releases/26.7"
@@ -36,18 +43,6 @@
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: fetch_ca.yml
-    
-    # - name: get proxmox ca
-    #   ansible.builtin.slurp:
-    #     src: /etc/pve/pve-root-ca.pem
-    #   register: proxmox_ca
-
-    # - name: write ca to temp file
-    #   ansible.builtin.copy:
-    #     content: "{{ proxmox_ca.content | b64decode }}"
-    #     dest: "{{ proxmox_ca_path }}"
-    #     mode: "600"
-    #   delegate_to: localhost
 
     - ansible.builtin.import_role:
         name: bootstrap
@@ -55,9 +50,6 @@
 
 # - name: truenas bootstrap
 #   hosts: storage
-#   vars:
-#     ansible_user: truenas_admin
-#     ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway_node | first].wan_ip }}'
 #   tasks:
 #     - ansible.builtin.import_role:
 #         name: bootstrap
@@ -125,8 +117,6 @@
 
 - name: switch proxmox gateway
   hosts: gateway_node
-  vars:
-    ansible_host: "{{ wan_ip }}"
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -142,8 +132,6 @@
 
 - name: prepare debian cloud image
   hosts: gateway_node
-  vars:
-    ansible_host: "{{ wan_ip }}"
   tasks:
     - name: download debian cloud image
       ansible.builtin.get_url:
@@ -170,9 +158,6 @@
 
 - name: setup netbird management and client
   hosts: netbird_vm
-  vars:
-    netbird_all_group_id: "{{ (netbird_groups.data | selectattr('name', 'eq', 'All') | first).id }}"
-    netbird_router_peer_id: "{{ (netbird_peers.data | selectattr('hostname', 'eq', inventory_hostname | replace('_', '-')) | first).id }}"
   module_defaults:
     group/community.ansible_netbird.netbird:
       api_url: "https://{{ netbird_domain }}"

@@ -22,8 +22,6 @@
 # from 05_gateway_vm_wireguard_pt1
 - name: reload wireguard (pt1)
   delegate_to: "{{ groups.gateway_node | first }}"
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
   oxlorg.opnsense.reload:
     target: wireguard
 
@@ -36,8 +34,6 @@
 # from 07_gateway_vm_wireguard_pt2
 - name: reload wireguard (pt2)
   delegate_to: "{{ api_delegate }}"
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
   oxlorg.opnsense.reload:
     target: wireguard
 

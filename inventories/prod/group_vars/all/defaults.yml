@@ -9,7 +9,7 @@ opnsense_module_defaults:
 
 local_proxmox_ca_path: "/tmp/proxmox-ca-{{ groups.gateway_node | first }}.pem"
 proxmox_module_defaults:
-  api_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
+  api_host: "{{ hostvars[groups.gateway_node | first].ansible_host }}"
   api_user: root@pam
   api_password: "{{ proxmox_password }}"
   ca_path: "{{ local_proxmox_ca_path }}"

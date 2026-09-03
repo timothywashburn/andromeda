@@ -168,12 +168,10 @@
   delegate_to: localhost
   register: netbird_groups
   
-- ansible.builtin.debug:
-    var: netbird_peers
-- ansible.builtin.debug:
-    var: netbird_groups
-
 - name: add homelab machines to netbird network
+  vars:
+    netbird_all_group_id: "{{ (netbird_groups.data | selectattr('name', 'eq', 'All') | first).id }}"
+    netbird_router_peer_id: "{{ (netbird_peers.data | selectattr('hostname', 'eq', inventory_hostname | replace('_', '-')) | first).id }}"
   community.ansible_netbird.netbird_network:
     name: homelab
     description: internal homelab network

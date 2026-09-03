@@ -1,6 +1,4 @@
 - name: copy proxmox ca to controller
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
   ansible.builtin.fetch:
     src: /etc/pve/pve-root-ca.pem
     dest: "{{ local_proxmox_ca_path }}"

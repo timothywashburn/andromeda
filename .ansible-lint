@@ -5,3 +5,4 @@ skip_list:
   - yaml[line-length]
   - var-naming[no-role-prefix]
   - args[module]
+  - no-handler

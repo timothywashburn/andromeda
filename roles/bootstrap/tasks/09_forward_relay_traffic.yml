@@ -7,7 +7,7 @@
 
 - name: apply sysctl
   ansible.builtin.command: sysctl --system
-  when: sysctl_conf.changed # noqa: no-handler
+  when: sysctl_conf.changed
   changed_when: true
 
 - name: install iptables-persistent

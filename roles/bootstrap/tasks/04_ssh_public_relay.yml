@@ -42,7 +42,7 @@
         name: ssh.socket
         state: restarted
         daemon_reload: true
-      when: ssh_socket_change.changed # noqa: no-handler
+      when: ssh_socket_change.changed
 
     - name: change back to alternate port
       ansible.builtin.set_fact:
