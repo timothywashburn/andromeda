@@ -1,3 +1,11 @@
+- name: render port aliases
+  ansible.builtin.set_fact:
+    port_aliases: "{{ lookup('ansible.builtin.template', 'port_aliases.yml.j2') | from_yaml | default([], true) }}"
+
+- name: render service rules
+  ansible.builtin.set_fact:
+    service_rules: "{{ lookup('ansible.builtin.template', 'service_rules.yml.j2') | from_yaml | default([], true) }}"
+
 # this won't work read ignore-opnsense-chunked-bug.md
 # - name: install qemu guest agent
 #   oxlorg.opnsense.package:

@@ -63,13 +63,8 @@
     path: /andromeda/markers/lan-gateway
   register: lan_gateway_marker
 
-- name: copy new interfaces configuration
-  ansible.builtin.template:
-    src: interfaces.j2
-    dest: /etc/network/interfaces
-    mode: "644"
+- name: configure network interfaces
+  ansible.builtin.include_tasks: configure_interfaces.yml
   vars:
     gateway: wan
-  notify:
-    - update interfaces
   when: not lan_gateway_marker.stat.exists

@@ -16,4 +16,4 @@
     servers:
       - tunnel
   delegate_to: "{{ api_delegate }}"
-  notify: reload wireguard
+  notify: reload wireguard (pt2)

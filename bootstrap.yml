@@ -2,7 +2,8 @@
 #   hosts: localhost
 #   tasks:
 #     - ansible.builtin.import_role:
-#         name: 00_inventory_verification
+#         name: bootstrap
+#         tasks_from: 00_inventory_verification.yml
 
 - name: gateway host prep
   hosts: gateway_node
@@ -15,7 +16,8 @@
         mac: "{{ lan_mac }}"
   tasks:
     - ansible.builtin.import_role:
-        name: 01_proxmox_host
+        name: bootstrap
+        tasks_from: 01_proxmox_host.yml
 
 
 - name: proxmox bootstrap
@@ -31,7 +33,9 @@
     opnsense_iso: OPNsense-26.7-dvd-amd64.iso
     opnsense_sha256: 95cafedda6d5b22ce832e249dc2309110fbee19f813ad78cf28bb3d387186bfb
   tasks:
-    - ansible.builtin.import_tasks: tasks/proxmox/fetch_ca.yml
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: fetch_ca.yml
     
     # - name: get proxmox ca
     #   ansible.builtin.slurp:
@@ -46,7 +50,8 @@
     #   delegate_to: localhost
 
     - ansible.builtin.import_role:
-        name: 02_proxmox_gateway_vm
+        name: bootstrap
+        tasks_from: 02_proxmox_gateway_vm.yml
 
 # - name: truenas bootstrap
 #   hosts: storage
@@ -54,15 +59,17 @@
 #     ansible_user: truenas_admin
 #     ansible_ssh_common_args: '-J root@{{ hostvars[groups.gateway_node | first].wan_ip }}'
 #   tasks:
-#     - ansible.builtin.import_playbook:
-#         name: 03_truenas_setup
+#     - ansible.builtin.import_role:
+#         name: bootstrap
+#         tasks_from: 03_truenas_setup.yml
 
 - name: change relay ssh port
   hosts: public_relay
   gather_facts: false
   tasks:
     - ansible.builtin.import_role:
-        name: 04_ssh_public_relay
+        name: bootstrap
+        tasks_from: 04_ssh_public_relay.yml
 
 - name: gateway vm wireguard instance intial setup
   hosts: gateway_vm
@@ -71,7 +78,8 @@
     group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}" 
   tasks:
     - ansible.builtin.import_role:
-        name: 05_gateway_vm_wireguard_pt1
+        name: bootstrap
+        tasks_from: 05_gateway_vm_wireguard_pt1.yml
   
 - name: public relay wireguard setup
   hosts: public_relay
@@ -79,7 +87,8 @@
     peer: "{{ hostvars[groups.gateway_vm | first] }}"
   tasks:
     - ansible.builtin.import_role:
-        name: 06_public_relay_wireguard
+        name: bootstrap
+        tasks_from: 06_public_relay_wireguard.yml
 
 - name: gateway vm wireguard instance final setup
   hosts: gateway_vm
@@ -91,7 +100,8 @@
     group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
   tasks:
     - ansible.builtin.import_role:
-        name: 07_gateway_vm_wireguard_pt2
+        name: bootstrap
+        tasks_from: 07_gateway_vm_wireguard_pt2.yml
 
 - name: configure opnsense after wireguard tunnel install
   hosts: gateway_vm
@@ -99,44 +109,36 @@
     ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
     peer: "{{ hostvars[groups.public_relay | first] }}"
     api_delegate: "{{ groups.gateway_node | first }}"
-    port_aliases: "{{ lookup('ansible.builtin.template', 'port_aliases.yml.j2') | from_yaml | default([], true) }}"
-    service_rules: "{{ lookup('ansible.builtin.template', 'service_rules.yml.j2') | from_yaml | default([], true) }}"
   module_defaults:
     group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
   tasks:
     - ansible.builtin.import_role:
-        name: 08_configure_opnsense
+        name: bootstrap
+        tasks_from: 08_configure_opnsense.yml
 
 - name: forward public relay traffic
   hosts: public_relay
   tasks:
     - ansible.builtin.import_role:
-        name: 09_forward_relay_traffic
+        name: bootstrap
+        tasks_from: 09_forward_relay_traffic.yml
 
 - name: switch proxmox gateway
   hosts: gateway_node
   vars:
     ansible_host: "{{ wan_ip }}"
   tasks:
-    - name: switch gateway to lan
-      ansible.builtin.template:
-        src: interfaces.j2
-        dest: /etc/network/interfaces
-        mode: "644"
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: configure_interfaces.yml
       vars:
         gateway: lan
-      notify: update interface
-    
+
     - name: register gateway switch to vm
       ansible.builtin.copy:
         content: ""
         dest: /andromeda/markers/lan-gateway
         mode: "644"
-      
-  handlers:
-    - name: update interface
-      ansible.builtin.command: ifreload -a
-      changed_when: true
 
 - name: prepare debian cloud image
   hosts: gateway_node
@@ -158,10 +160,13 @@
   module_defaults:
     group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}"
   tasks:
-    - ansible.builtin.import_tasks: tasks/proxmox/fetch_ca.yml
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: fetch_ca.yml
     
     - ansible.builtin.import_role:
-        name: 10_provision_debian_vms
+        name: bootstrap
+        tasks_from: 10_provision_debian_vms.yml
 
 - name: setup netbird management and client
   hosts: netbird_vm
@@ -174,10 +179,12 @@
       api_token: "{{ netbird_pat }}"
   tasks:
     - ansible.builtin.import_role:
-        name: 20_netbird_vm
+        name: bootstrap
+        tasks_from: 20_netbird_vm.yml
 
 - name: setup reverse proxy
   hosts: rev_proxy_vm
   tasks:
     - ansible.builtin.import_role:
-        name: 21_caddy_rev_proxy
+        name: bootstrap
+        tasks_from: 21_caddy_rev_proxy.yml

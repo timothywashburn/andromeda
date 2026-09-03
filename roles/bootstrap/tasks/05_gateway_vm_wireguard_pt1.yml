@@ -60,4 +60,4 @@
         allowed_ips:
           - "{{ tunnel_ip }}/32"
         link_peers: false
-      notify: reload wireguard
+      notify: reload wireguard (pt1)
