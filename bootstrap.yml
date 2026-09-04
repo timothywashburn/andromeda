@@ -1,3 +1,5 @@
+# ==== BEGIN INITIAL CHECKS ====
+
 # - name: inventory verification
 #   hosts: localhost
 #   tasks:
@@ -22,7 +24,9 @@
           -J root@{{ hostvars[groups.gateway_node | first].ansible_host }}
           -o StrictHostKeyChecking=accept-new
 
-- name: gateway host prep
+# ==== BEGIN BOOTSTRAPPING ====
+
+- name: gateway host setup
   hosts: gateway_node
   tasks:
     - ansible.builtin.import_role:
@@ -31,19 +35,7 @@
 
 - name: proxmox bootstrap
   hosts: gateway_node
-  module_defaults:
-    group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}" 
-  vars:
-    # proxmox vm stuff
-    proxmox_iso_storage_path: /var/lib/vz/template/iso
-    opnsense_mirror: "https://pkg.opnsense.org/releases/26.7"
-    opnsense_iso: OPNsense-26.7-dvd-amd64.iso
-    opnsense_sha256: 95cafedda6d5b22ce832e249dc2309110fbee19f813ad78cf28bb3d387186bfb
   tasks:
-    - ansible.builtin.import_role:
-        name: bootstrap
-        tasks_from: fetch_ca.yml
-
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 02_proxmox_gateway_vm.yml
@@ -66,8 +58,6 @@
 - name: gateway vm wireguard instance intial setup
   hosts: gateway_vm
   gather_facts: false
-  module_defaults:
-    group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}" 
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -75,8 +65,6 @@
   
 - name: public relay wireguard setup
   hosts: public_relay
-  vars:
-    peer: "{{ hostvars[groups.gateway_vm | first] }}"
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -84,12 +72,7 @@
 
 - name: gateway vm wireguard instance final setup
   hosts: gateway_vm
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-    peer: "{{ hostvars[groups.public_relay | first] }}"
-    api_delegate: "{{ groups.gateway_node | first }}"
-  module_defaults:
-    group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
+  gather_facts: false
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -97,12 +80,7 @@
 
 - name: configure opnsense after wireguard tunnel install
   hosts: gateway_vm
-  vars:
-    ansible_host: "{{ hostvars[groups.gateway_node | first].wan_ip }}"
-    peer: "{{ hostvars[groups.public_relay | first] }}"
-    api_delegate: "{{ groups.gateway_node | first }}"
-  module_defaults:
-    group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
+  gather_facts: false
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -124,44 +102,16 @@
       vars:
         gateway: lan
 
-    - name: register gateway switch to vm
-      ansible.builtin.copy:
-        content: ""
-        dest: /andromeda/markers/lan-gateway
-        mode: "644"
-
-- name: prepare debian cloud image
-  hosts: gateway_node
-  tasks:
-    - name: download debian cloud image
-      ansible.builtin.get_url:
-        url: "{{ debian_cloud_image.base_url }}/{{ debian_cloud_image.file }}"
-        dest: "/var/lib/vz/import/{{ debian_cloud_image.file }}"
-        checksum: "sha512:{{ debian_cloud_image.base_url }}/SHA512SUMS"
-        mode: "644"
-
 - name: provision debian cloud vms
   hosts: generic_deb_vms
   gather_facts: false
-  vars:
-    proxmox_node: "{{ groups.gateway_node | first }}"
-  module_defaults:
-    group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}"
   tasks:
-    - ansible.builtin.import_role:
-        name: bootstrap
-        tasks_from: fetch_ca.yml
-    
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 10_provision_debian_vms.yml
 
 - name: setup netbird management and client
   hosts: netbird_vm
-  module_defaults:
-    group/community.ansible_netbird.netbird:
-      api_url: "https://{{ netbird_domain }}"
-      api_token: "{{ netbird_pat }}"
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap

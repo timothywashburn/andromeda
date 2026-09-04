@@ -1,19 +1,22 @@
-- name: assert public relay public key
-  ansible.builtin.assert:
-    that: peer.wg_public_key is defined
-    fail_msg: public relay must have procured a public key
+- module_defaults:
+    group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
+  delegate_to: "{{ opnsense_api_delegate }}"
+  block:
+    - name: assert public relay public key
+      ansible.builtin.assert:
+        that: tunnel_peer.wg_public_key is defined
+        fail_msg: public relay must have procured a public key
 
-- name: create wireguard peer
-  oxlorg.opnsense.wireguard_peer:
-    name: tunnel
-    public_key: "{{ peer.wg_public_key }}"
-    allowed_ips:
-      - "{{ peer.tunnel_ip }}/32"
-    endpoint: "{{ peer.public_ip }}"
-    port: "{{ peer.tunnel_port }}"
-    keepalive: 20
-    link_servers: true
-    servers:
-      - tunnel
-  delegate_to: "{{ api_delegate }}"
-  notify: reload wireguard (pt2)
+    - name: create wireguard peer
+      oxlorg.opnsense.wireguard_peer:
+        name: tunnel
+        public_key: "{{ tunnel_peer.wg_public_key }}"
+        allowed_ips:
+          - "{{ tunnel_peer.tunnel_ip }}/32"
+        endpoint: "{{ tunnel_peer.public_ip }}"
+        port: "{{ tunnel_peer.tunnel_port }}"
+        keepalive: 20
+        link_servers: true
+        servers:
+          - tunnel
+      notify: reload wireguard

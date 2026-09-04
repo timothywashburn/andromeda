@@ -1,6 +1,6 @@
 - name: assert gateway vm public key
   ansible.builtin.assert:
-    that: peer.wg_public_key is defined
+    that: tunnel_peer.wg_public_key is defined
     fail_msg: gateway vm must have procured a public key
 
 - name: install wireguard

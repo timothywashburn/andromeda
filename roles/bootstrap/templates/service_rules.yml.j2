@@ -1,7 +1,7 @@
 {% for service in services %}
 - name: inbound service traffic ({{ service.name }})
   interface: ["{{ wg_iface_name }}"]
-  source_net: {{ peer.tunnel_ip }}/32
+  source_net: {{ tunnel_peer.tunnel_ip }}/32
   destination_net: {{ service.dest }}/32
   destination_port: svc_{{ service.name }}_ports
   protocol: {{ service.protocol | upper }}

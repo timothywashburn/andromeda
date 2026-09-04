@@ -13,3 +13,5 @@ proxmox_module_defaults:
   api_user: root@pam
   api_password: "{{ proxmox_password }}"
   ca_path: "{{ local_proxmox_ca_path }}"
+
+opnsense_api_delegate: "{{ groups.gateway_node | first }}"

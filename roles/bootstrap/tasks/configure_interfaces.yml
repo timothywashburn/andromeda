@@ -1,6 +1,13 @@
-- name: "configure network interfaces (gateway={{ gateway }})"
+- name: "configure network interfaces: {{ gateway }}"
   ansible.builtin.template:
     src: interfaces.j2
     dest: /etc/network/interfaces
     mode: "644"
   notify: update interfaces
+  
+- name: register gateway switch to vm
+  ansible.builtin.copy:
+    content: ""
+    dest: /andromeda/markers/lan-gateway
+    mode: "644"
+  when: gateway == "lan"
