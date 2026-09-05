@@ -1,8 +1,9 @@
 collections:
   - name: community.proxmox
   - name: community.general
-  - name: oxlorg.opnsense
   - name: community.docker
+  - name: community.crypto
+  - name: oxlorg.opnsense
   - name: https://github.com/netbirdio/ansible-netbird.git
     type: git
     version: 24daa32c810f921c9d6da3e984bad235666253b5 

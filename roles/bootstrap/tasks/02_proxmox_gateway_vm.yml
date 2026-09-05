@@ -10,6 +10,64 @@
         name: bootstrap
         tasks_from: fetch_proxmox_ca.yml
 
+    - name: create certificate directory
+      ansible.builtin.file:
+        path: /etc/ssl/andromeda
+        state: directory
+        mode: "700"
+      
+    - name: generate ssl private key
+      community.crypto.openssl_privatekey:
+        path: /etc/ssl/andromeda/pveproxy.key
+        mode: "600"
+
+    - name: generate proxmox csr
+      community.crypto.openssl_csr:
+        path: /etc/ssl/andromeda/pveproxy.csr
+        privatekey_path: /etc/ssl/andromeda/pveproxy.key
+        common_name: "{{ inventory_hostname }}.internal"
+        subject_alt_name:
+          - "DNS:{{ inventory_hostname }}"
+          - "DNS:{{ inventory_hostname }}.internal"
+          - "IP:127.0.0.1"
+          - "IP:{{ lan_ip }}"
+          - "IP:{{ wan_ip }}"
+
+    - name: sign certificate using ca
+      community.crypto.x509_certificate:
+        path: /etc/ssl/andromeda/pveproxy.pem
+        csr_path: /etc/ssl/andromeda/pveproxy.csr
+        provider: ownca
+        ownca_path: /etc/pve/pve-root-ca.pem
+        ownca_privatekey_path: /etc/pve/priv/pve-root-ca.key
+        mode: "640"
+      register: pve_cert
+
+    - name: read certificate
+      ansible.builtin.slurp:
+        src: /etc/ssl/andromeda/pveproxy.pem
+      register: pve_cert_pem
+      when: pve_cert is changed
+
+    - name: read certificate key
+      ansible.builtin.slurp:
+        src: /etc/ssl/andromeda/pveproxy.key
+      register: pve_cert_key
+      when: pve_cert is changed
+
+    - name: install certificate
+      community.proxmox.proxmox_node:
+        node: "{{ inventory_hostname }}"
+        certificates:
+          certificate: "{{ pve_cert_pem.content | b64decode }}"
+          private_key: "{{ pve_cert_key.content | b64decode }}"
+          state: present
+          force: true
+          restart: true
+      delegate_to: localhost
+      no_log: true
+      when: pve_cert is changed
+
     - name: check for opnsense iso
       ansible.builtin.stat:
         path: "{{ proxmox_iso_storage_path }}//{{ opnsense_iso }}"

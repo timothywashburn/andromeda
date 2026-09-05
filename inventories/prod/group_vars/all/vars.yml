@@ -8,6 +8,10 @@ debian_cloud_image:
   base_url: https://cloud.debian.org/images/cloud/trixie/20260819-2575
   file: debian-13-genericcloud-amd64-20260819-2575.qcow2
 
+rocky_cloud_image:
+  base_url: https://dl.rockylinux.org/pub/rocky/9/images/x86_64
+  file: Rocky-9-GenericCloud-Base-9.8-20260525.0.x86_64.qcow2
+
 static_rules:
   - name: allow v4 lan traffic
     interface: [lan]
