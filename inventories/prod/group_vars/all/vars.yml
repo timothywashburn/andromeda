@@ -7,10 +7,12 @@ public_ssh_keys:
 debian_cloud_image:
   base_url: https://cloud.debian.org/images/cloud/trixie/20260819-2575
   file: debian-13-genericcloud-amd64-20260819-2575.qcow2
+  checksum: "sha512:{{ debian_cloud_image.base_url }}/SHA512SUMS"
 
 rocky_cloud_image:
   base_url: https://dl.rockylinux.org/pub/rocky/9/images/x86_64
   file: Rocky-9-GenericCloud-Base-9.8-20260525.0.x86_64.qcow2
+  checksum: "sha256:{{ rocky_cloud_image.base_url }}/{{ rocky_cloud_image.file }}.CHECKSUM"
 
 static_rules:
   - name: allow v4 lan traffic

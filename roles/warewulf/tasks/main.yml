@@ -11,7 +11,7 @@
       ansible.builtin.get_url:
         url: "{{ rocky_cloud_image.base_url }}/{{ rocky_cloud_image.file }}"
         dest: "/var/lib/vz/import/{{ rocky_cloud_image.file }}"
-        checksum: "sha256:{{ rocky_cloud_image.base_url }}/{{ rocky_cloud_image.file }}.CHECKSUM"
+        checksum: "{{ rocky_cloud_image.checksum }}"
         mode: "644"
       delegate_to: "{{ groups.gateway_node | first }}"
 
@@ -32,9 +32,9 @@
         ciuser: rocky
         cipassword: "{{ temp_password }}" # TODO: temp
         sshkeys: "{{ public_ssh_keys | join('\n') }}"
-        nameservers: "10.127.0.254"
+        nameservers: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
         ipconfig:
-          ipconfig0: "ip={{ ansible_host }}/24,gw=10.127.0.254"
+          ipconfig0: "ip={{ ansible_host }}/24,gw={{ hostvars[groups.gateway_vm | first].ansible_host }}"
         ide:
           ide2: "local-lvm:cloudinit"
         net:
@@ -71,3 +71,153 @@
     - name: wait for ssh
       ansible.builtin.wait_for_connection:
         timeout: 60
+
+- name: install warewulf and tftp server
+  ansible.builtin.dnf:
+    name:
+      - "{{ warewulf_rpm_url }}"
+      - tftp-server
+    state: present
+    disable_gpg_check: true
+
+- name: ensure authorized keys is up to date
+  ansible.builtin.copy:
+    content: "{{ public_ssh_keys | join('\n') }}\n"
+    dest: /root/.ssh/authorized_keys
+    owner: root
+    group: root
+    mode: "600"
+
+- name: configure warewulf
+  ansible.builtin.template:
+    src: warewulf.conf.j2
+    dest: /etc/warewulf/warewulf.conf
+    owner: root
+    group: root
+    mode: "644"
+  register: warewulf_conf
+  notify: restart warewulf
+
+- name: enable warewulf
+  ansible.builtin.systemd_service:
+    name: warewulfd
+    enabled: true
+    state: started
+
+- name: check if configuration has ran before
+  ansible.builtin.stat:
+    path: /var/lib/tftpboot/warewulf/ipxe-snponly-x86_64.efi
+  register: warewulf_bootfile
+
+- name: apply warewulf configuration
+  ansible.builtin.command: wwctl configure --all
+  when: warewulf_conf.changed or not warewulf_bootfile.stat.exists
+  changed_when: true
+
+- name: check if node image exists
+  ansible.builtin.stat:
+    path: "{{ warewulf_chroot }}"
+  register: warewulf_image_chroot
+
+- name: import node image
+  ansible.builtin.command: wwctl image import {{ warewulf_image_source }} {{ warewulf_image_name }}
+  notify: build node image
+  when: not warewulf_image_chroot.stat.exists
+  changed_when: true
+
+# todo: this is just temporary
+- name: set root password in node image
+  ansible.builtin.command: >-
+    wwctl image exec --build=false {{ warewulf_image_name }} -- /bin/bash -c "echo root:{{ temp_password }} | chpasswd"
+  no_log: true
+  notify: build node image
+  changed_when: false # this is not true
+
+- name: ensure andromeda directory exists
+  ansible.builtin.file:
+    path: "{{ warewulf_chroot }}/andromeda"
+    state: directory
+    mode: "755"
+
+- name: read image package list
+  ansible.builtin.slurp:
+    src: "{{ warewulf_chroot }}/andromeda/warewulf-packages"
+  register: image_package_list
+  failed_when: false
+
+- name: install packages to image
+  ansible.builtin.command: >-
+    wwctl image exec --build=false {{ warewulf_image_name }} --
+    /bin/bash -c "apt-get update && apt-get install -y --no-install-recommends {{ warewulf_image_packages | join(' ') }} && rm -rf /var/lib/apt/lists/*"
+  notify: build node image
+  when: (image_package_list.content | default('') | b64decode) != (warewulf_image_packages | join('\n'))
+  changed_when: true
+
+- name: write image package list
+  ansible.builtin.copy:
+    content: "{{ warewulf_image_packages | join('\n') }}"
+    dest: "{{ warewulf_chroot }}/andromeda/warewulf-packages"
+    mode: "644"
+
+- name: check image for k3s agent
+  ansible.builtin.stat:
+    path: "{{ warewulf_chroot }}/etc/systemd/system/k3s-agent.service"
+  register: image_k3s_install
+
+- name: install k3s agent to image
+  ansible.builtin.command: >-
+    wwctl image exec --build=false {{ warewulf_image_name }} --
+    /bin/bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true
+    INSTALL_K3S_SKIP_ENABLE=true INSTALL_K3S_EXEC=agent INSTALL_K3S_VERSION={{ k3s_version }} sh -s -"
+  notify: build node image
+  when: not image_k3s_install.stat.exists
+  changed_when: true
+
+- module_defaults:
+    ansible.builtin.template:
+      variable_start_string: "[["
+      variable_end_string: "]]"
+  block:
+    - name: create overlay directories
+      ansible.builtin.file:
+        path: "{{ warewulf_overlay_dir }}/{{ item }}"
+        state: directory
+        mode: "755"
+      loop:
+        - iscsi.initiator/rootfs/etc/iscsi
+        - k3s.storage/rootfs/etc/systemd/system/multi-user.target.wants
+      
+    - name: write iscsi initiator overlay
+      ansible.builtin.template:
+        src: initiatorname.iscsi.ww.j2
+        dest: "{{ warewulf_overlay_dir }}/iscsi.initiator/rootfs/etc/iscsi/initiatorname.iscsi.ww"
+        mode: "644"
+      notify: build overlays
+
+    - name: write k3s storage unit overlays
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/{{ item }}"
+        mode: "644"
+      loop:
+        - k3s-iscsi.service.ww
+        - var-lib-rancher.mount.ww
+      notify: build overlays
+
+- name: write overlay to enable k3s storage units
+  ansible.builtin.file:
+    src: "../{{ item }}"
+    dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/multi-user.target.wants/{{ item }}"
+    state: link
+    force: true
+  loop:
+    - k3s-iscsi.service
+    - var-lib-rancher.mount
+  notify: build overlays
+
+- name: write nodes config
+  ansible.builtin.template:
+    src: nodes.conf.j2
+    dest: /etc/warewulf/nodes.conf
+    mode: "644"
+  notify: build overlays

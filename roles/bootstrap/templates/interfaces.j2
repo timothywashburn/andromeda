@@ -21,7 +21,7 @@ auto vmbr1
 iface vmbr1 inet static
 	address {{ lan_ip }}/24
 {% if gateway == "lan" %}
-	gateway 10.127.0.254
+	gateway {{ hostvars[groups.gateway_vm | first].ansible_host }}
 {% endif %}
 	bridge-ports lan0
 	bridge-stp off

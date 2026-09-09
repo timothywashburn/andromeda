@@ -1,0 +1,12 @@
+- name: restart warewulf
+  ansible.builtin.systemd_service:
+    name: warewulfd
+    state: restarted
+
+- name: build node image
+  ansible.builtin.command: wwctl image build {{ warewulf_image_name }}
+  changed_when: true
+
+- name: build overlays
+  ansible.builtin.command: wwctl overlay build
+  changed_when: true

@@ -1,0 +1,58 @@
+# {{ ansible_managed }}
+# this file is mostly just the default configuration for this file;
+# not sure overwriting it as a means of configuring it is even a good idea tbh
+nodeprofiles:
+  default:
+    image name: {{ warewulf_image_name }}
+    runtime overlay:
+      - hosts
+      - ssh.authorized_keys
+    system overlay:
+      - wwinit
+      - wwclient
+      - hosts
+      - fstab
+      - hostname
+      - ssh.host_keys
+      - issue
+      - resolv
+      - udev.netname
+      - systemd.netname
+      - ifcfg
+      - ifupdown
+      - NetworkManager
+      - wicked
+      - ignition
+{% for system_overlay in warewulf_custom_system_overlays %}
+      - {{ system_overlay }}
+{% endfor %}
+    kernel:
+      args:
+        - crashkernel=no
+        - net.ifnames=1
+        - rootfstype=tmpfs
+    init: /sbin/init
+    root: initramfs
+    ipxe template: default
+    tags:
+      IPXEMenuEntry: initrd
+    ipmi:
+      template: ipmitool.tmpl
+    network devices:
+      default:
+        device: eth0
+        netmask: {{ warewulf_network | ansible.utils.ipaddr('netmask') }}
+        gateway: {{ hostvars[groups.gateway_vm | first].ansible_host }}
+        tags:
+          DNS1: {{ hostvars[groups.gateway_vm | first].ansible_host }}
+nodes:
+{% for node in groups.warewulf_nodes %}
+  {{ node }}:
+    profiles:
+      - default
+    network devices:
+      default:
+        hwaddr: {{ hostvars[node].mac }}
+        ipaddr: {{ hostvars[node].ansible_host }}
+{% endfor %}
+

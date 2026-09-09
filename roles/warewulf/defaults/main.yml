@@ -1,0 +1,37 @@
+warewulf_version: "4.7.0"
+k3s_version: "v1.36.4+k3s1"
+
+warewulf_rpm_url: "https://github.com/warewulf/warewulf/releases/download/v{{ warewulf_version }}/warewulf-{{ warewulf_version }}-1.el9.x86_64.rpm"
+warewulf_network: "{{ homelab_networks[0].cidr }}"
+
+warewulf_image_name: debian-13
+warewulf_image_source: docker://ghcr.io/warewulf/warewulf-debian:13
+
+warewulf_chroot: "/var/lib/warewulf/chroots/{{ warewulf_image_name }}/rootfs"
+warewulf_overlay_dir: /var/lib/warewulf/overlays
+
+warewulf_storage_host: "{{ hostvars[groups.storage | first].ansible_host }}"
+warewulf_initiator_iqn_base: ***REMOVED***
+warewulf_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas
+
+warewulf_custom_system_overlays:
+  - iscsi.initiator
+  - k3s.storage
+
+warewulf_image_packages:
+  - open-iscsi # truenas
+  - e2fsprogs # truenas
+  - conntrack # kube-proxy
+  - socat # kubectl port-forward
+  - iptables
+  - curl
+  - iputils-ping
+  - htop
+  - bind9-dnsutils # dns debug
+  - less
+  - vim
+  - lsof
+  - tcpdump
+  - jq
+  - bash-completion
+  - net-tools

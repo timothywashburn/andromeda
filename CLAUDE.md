@@ -2,3 +2,4 @@
 - You can access pavo (proxmox gateway) with `ssh pavo` and 
 - You can access carina (truenas storage) with `ssh -J pavo truenas_admin@10.127.0.2`
 - You can access public relay with `ssh tunnel`
+- if you're asking me to modify an existing file use + (green) - (red) and blue for moved to make the diff more human readable

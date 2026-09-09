@@ -32,9 +32,9 @@
         ciuser: root
         cipassword: "{{ temp_password }}" # TODO: temp
         sshkeys: "{{ public_ssh_keys | join('\n') }}"
-        nameservers: "10.127.0.254"
+        nameservers: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
         ipconfig:
-          ipconfig0: "ip={{ ansible_host }}/24,gw=10.127.0.254"
+          ipconfig0: "ip={{ ansible_host }}/24,gw={{ hostvars[groups.gateway_vm | first].ansible_host }}"
         ide:
           ide2: "local-lvm:cloudinit"
         net:
