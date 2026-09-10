@@ -5,6 +5,7 @@ collections:
   - name: community.crypto
   - name: community.postgresql
   - name: oxlorg.opnsense
+  - name: ansible.posix
   - name: https://github.com/netbirdio/ansible-netbird.git
     type: git
     version: 24daa32c810f921c9d6da3e984bad235666253b5 

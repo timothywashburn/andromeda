@@ -28,11 +28,12 @@ nodeprofiles:
 {% endfor %}
     kernel:
       args:
+        - quiet
         - crashkernel=no
         - net.ifnames=1
-        - rootfstype=tmpfs
+        - rootfstype=tmpfs # todo: with the change root: initramfs -> tmpfs this may not be needed now; more testing needed
     init: /sbin/init
-    root: initramfs
+    root: tmpfs
     ipxe template: default
     tags:
       IPXEMenuEntry: initrd
@@ -54,5 +55,11 @@ nodes:
       default:
         hwaddr: {{ hostvars[node].mac }}
         ipaddr: {{ hostvars[node].ansible_host }}
+    resources:
+      fstab:
+        - spec: /dev/disk/by-path/ip-{{ hostvars[groups.storage | first].ansible_host }}:3260-iscsi-{{ iscsi_target_iqn_base }}:{{ node }}-lun-0
+          file: /var/lib/rancher
+          vfstype: ext4
+          mntops: _netdev,noatime,x-systemd.makefs,x-systemd.requires=k3s-iscsi.service
 {% endfor %}
 

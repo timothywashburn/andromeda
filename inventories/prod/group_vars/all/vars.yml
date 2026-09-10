@@ -2,6 +2,13 @@ ansible_user: root
 ansible_python_interpreter: /usr/bin/python3
 ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
 
+netbird_server_version: "0.77.1"
+netbird_dashboard_version: "v2.91.1"
+kea_version: "3.0.4"
+stork_version: "2.4.1"
+warewulf_version: "4.7.0"
+k3s_version: "v1.36.4+k3s1" # this affects both the control plane vm and warewulf agent nodes
+
 iscsi_initiator_iqn_base: ***REMOVED***
 iscsi_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas
 

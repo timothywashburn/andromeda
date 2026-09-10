@@ -70,7 +70,7 @@
 
     - name: wait for ssh
       ansible.builtin.wait_for_connection:
-        timeout: 10
+        timeout: 20
 
 - name: install warewulf and tftp server
   ansible.builtin.dnf:
@@ -80,13 +80,11 @@
     state: present
     disable_gpg_check: true
 
-- name: ensure authorized keys is up to date
-  ansible.builtin.copy:
-    content: "{{ public_ssh_keys | join('\n') }}\n"
-    dest: /root/.ssh/authorized_keys
-    owner: root
-    group: root
-    mode: "600"
+# adds to root despite ansible_user being rocky as this gets copied to all nodes
+- name: add authorized key for node root logins
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ public_ssh_keys | join('\n') }}"
 
 - name: configure warewulf
   ansible.builtin.template:
@@ -159,21 +157,36 @@
     dest: "{{ warewulf_chroot }}/andromeda/warewulf-packages"
     mode: "644"
 
-- name: check image for k3s agent
-  ansible.builtin.stat:
-    path: "{{ warewulf_chroot }}/etc/systemd/system/k3s-agent.service"
-  register: image_k3s_install
+- name: enforce locale because lean image
+  ansible.builtin.copy:
+    content: "SetEnv LANG=C.UTF-8\n"
+    dest: "{{ warewulf_chroot }}/etc/ssh/sshd_config.d/99-locale.conf"
+    mode: "644"
+  notify: build node image
 
 - name: install k3s agent to image
+  args:
+    creates: "{{ warewulf_chroot }}/etc/systemd/system/k3s-agent.service"
   ansible.builtin.command: >-
     wwctl image exec --build=false {{ warewulf_image_name }} --
-    /bin/bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true
-    INSTALL_K3S_SKIP_ENABLE=true INSTALL_K3S_EXEC=agent INSTALL_K3S_VERSION={{ k3s_version }} sh -s -"
+    /bin/bash -c "curl -sfL https://get.k3s.io |
+    INSTALL_K3S_SKIP_ENABLE=true
+    INSTALL_K3S_EXEC=agent
+    INSTALL_K3S_VERSION={{ k3s_version }}
+    sh -s -"
   notify: build node image
-  when: not image_k3s_install.stat.exists
-  changed_when: true
 
-- module_defaults:
+# unlike the overlays below this is a direct modification to the image
+- name: enable k3s agent in image
+  ansible.builtin.file:
+    src: ../k3s-agent.service
+    dest: "{{ warewulf_chroot }}/etc/systemd/system/multi-user.target.wants/k3s-agent.service"
+    state: link
+    force: true
+  notify: build node image
+
+- name: create overlays
+  module_defaults:
     ansible.builtin.template:
       variable_start_string: "[["
       variable_end_string: "]]"
@@ -186,6 +199,9 @@
       loop:
         - iscsi.initiator/rootfs/etc/iscsi
         - k3s.storage/rootfs/etc/systemd/system/multi-user.target.wants
+        - k3s.agent/rootfs/etc/systemd/system/k3s-agent.service.d
+        - k3s.agent/rootfs/etc/rancher/k3s/config.yaml.d
+        - k3s.agent/rootfs/etc/rancher/node
       
     - name: write iscsi initiator overlay
       ansible.builtin.template:
@@ -194,30 +210,56 @@
         mode: "644"
       notify: build overlays
 
-    - name: write k3s storage unit overlays
+    - name: write k3s storage service overlays
       ansible.builtin.template:
-        src: "{{ item }}.j2"
-        dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/{{ item }}"
+        src: "k3s-iscsi.service.ww.j2"
+        dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/k3s-iscsi.service.ww"
         mode: "644"
-      loop:
-        - k3s-iscsi.service.ww
-        - var-lib-rancher.mount.ww
       notify: build overlays
 
-- name: write overlay to enable k3s storage units
-  ansible.builtin.file:
-    src: "../{{ item }}"
-    dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/multi-user.target.wants/{{ item }}"
-    state: link
-    force: true
-  loop:
-    - k3s-iscsi.service
-    - var-lib-rancher.mount
-  notify: build overlays
+    - name: run k3s storage service on startup
+      ansible.builtin.file:
+        src: "../k3s-iscsi.service"
+        dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/multi-user.target.wants/k3s-iscsi.service"
+        state: link
+        force: true
+      notify: build overlays
+
+    - name: wire k3s agent storage dependency overlay
+      ansible.builtin.template:
+        src: 50-storage.conf.j2
+        dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/systemd/system/k3s-agent.service.d/50-storage.conf"
+        mode: "644"
+      notify: build overlays
+
+    - name: read k3s token
+      ansible.builtin.slurp:
+        path: /var/lib/rancher/k3s/server/node-token
+      delegate_to: "{{ groups.k3s_control_plane | first }}"
+      register: k3s_token_file
+      no_log: true
+
+    - name: write k3s agent config
+      ansible.builtin.template:
+        src: k3s-agent-config.yaml.j2
+        dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/rancher/k3s/config.yaml.d/50-k3s-agent-config.yaml"
+        mode: "600"
+      no_log: true
+      notify: build overlays
+
+    - name: write k3s node password
+      ansible.builtin.template:
+        src: k3s-node-password.ww.j2
+        dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/rancher/node/password.ww"
+        mode: "600"
+      no_log: true
+      notify: build overlays
 
 - name: write nodes config
   ansible.builtin.template:
     src: nodes.conf.j2
     dest: /etc/warewulf/nodes.conf
     mode: "644"
-  notify: build overlays
+  notify:
+    - build overlays
+    - reload warewulf

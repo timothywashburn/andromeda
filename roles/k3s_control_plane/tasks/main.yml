@@ -1,5 +1,5 @@
 - vars:
-    proxmox_node: "{{ groups.gateway_node | first }}"
+    proxmox_node: "{{ groups.mgmt | first }}"
   module_defaults:
     group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}"
   block:
@@ -13,7 +13,7 @@
         dest: "/var/lib/vz/import/{{ debian_cloud_image.file }}"
         checksum: "sha512:{{ debian_cloud_image.base_url }}/SHA512SUMS"
         mode: "644"
-      delegate_to: "{{ groups.gateway_node | first }}"
+      delegate_to: "{{ groups.mgmt | first }}"
 
     - name: create vm
       community.proxmox.proxmox_kvm:
@@ -71,3 +71,17 @@
     - name: wait for ssh
       ansible.builtin.wait_for_connection:
         timeout: 20
+
+- name: download k3s installer
+  ansible.builtin.get_url:
+    url: "https://get.k3s.io"
+    dest: /usr/local/bin/k3s-install.sh
+    mode: "755"
+
+- name: install k3s server
+  args:
+    creates: /usr/local/bin/k3s
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    INSTALL_K3S_EXEC: --node-taint CriticalAddonsOnly=true:NoExecute
+  ansible.builtin.command: /usr/local/bin/k3s-install.sh
