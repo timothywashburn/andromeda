@@ -4,3 +4,10 @@
   tasks:
     - ansible.builtin.import_role:
         name: warewulf
+
+- name: set up kea
+  hosts: kea_vm
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_role:
+        name: kea

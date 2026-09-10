@@ -1,0 +1,238 @@
+- vars:
+    proxmox_node: "{{ groups.mgmt | first }}"
+  module_defaults:
+    group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}"
+  block:
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: fetch_proxmox_ca.yml
+
+    - name: download debian cloud image
+      ansible.builtin.get_url:
+        url: "{{ debian_cloud_image.base_url }}/{{ debian_cloud_image.file }}"
+        dest: "/var/lib/vz/import/{{ debian_cloud_image.file }}"
+        checksum: "sha512:{{ debian_cloud_image.base_url }}/SHA512SUMS"
+        mode: "644"
+      delegate_to: "{{ groups.mgmt | first }}"
+
+    - name: create vm
+      community.proxmox.proxmox_kvm:
+        name: "{{ inventory_hostname | replace('_', '-') }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ vm_id }}"
+        bios: seabios
+        onboot: true
+        cpu: host
+        cores: "{{ vm_cores }}"
+        memory: "{{ vm_memory_mb }}"
+        scsihw: virtio-scsi-single
+        boot: "order=scsi0"
+        agent: true
+        citype: nocloud
+        ciuser: root
+        cipassword: "{{ temp_password }}" # TODO: temp
+        sshkeys: "{{ public_ssh_keys | join('\n') }}"
+        nameservers: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+        ipconfig:
+          ipconfig0: "ip={{ ansible_host }}/24,gw={{ hostvars[groups.gateway_vm | first].ansible_host }}"
+        ide:
+          ide2: "local-lvm:cloudinit"
+        net:
+          net0: "virtio,bridge=vmbr1,firewall=0"
+        serial:
+          serial0: socket
+      delegate_to: localhost
+
+    - name: import cloud image as boot disk
+      community.proxmox.proxmox_disk:
+        vmid: "{{ vm_id }}"
+        disk: scsi0
+        storage: local-lvm
+        import_from: "local:import/{{ debian_cloud_image.file }}"
+      delegate_to: localhost
+      register: disk_import
+
+    - name: grow cloud image boot disk
+      community.proxmox.proxmox_disk:
+        vmid: "{{ vm_id }}"
+        disk: scsi0
+        state: resized
+        size: "{{ vm_storage_gb }}G"
+      delegate_to: localhost
+      when: disk_import.changed
+
+    - name: start vm
+      community.proxmox.proxmox_kvm:
+        vmid: "{{ vm_id }}"
+        node: "{{ proxmox_node }}"
+        state: started
+      delegate_to: localhost
+
+    - name: wait for ssh
+      ansible.builtin.wait_for_connection:
+        timeout: 10
+
+- name: ensure andromeda directory exists
+  ansible.builtin.file:
+    path: "/andromeda"
+    state: directory
+    mode: "755"
+
+- name: add kea repository
+  ansible.builtin.deb822_repository:
+    name: kea-3-0
+    types: deb
+    uris: "{{ kea_repo_url }}"
+    suites: "{{ debian_cloud_image.suite }}"
+    components: main
+    signed_by: "{{ kea_repo_key }}"
+
+- name: add stork repository
+  ansible.builtin.deb822_repository:
+    name: stork
+    types: deb
+    uris: "{{ stork_repo_url }}"
+    suites: "{{ debian_cloud_image.suite }}"
+    components: main
+    signed_by: "{{ stork_repo_key }}"
+
+- name: pin kea and stork version
+  ansible.builtin.template:
+    src: isc.pref.j2
+    dest: /etc/apt/preferences.d/isc.pref
+    mode: "644"
+
+- name: install kea and stork
+  ansible.builtin.apt:
+    name:
+      - isc-kea-dhcp4
+      - isc-kea-ctrl-agent
+      - isc-kea-hooks
+      - isc-stork-server
+      - isc-stork-agent
+      - postgresql
+      - python3-psycopg2
+    update_cache: true
+
+- name: ensure stork agent can read kea config for credentials
+  ansible.builtin.user:
+    name: stork-agent
+    groups: _kea
+    append: true
+  notify: restart stork agent
+
+- become: true
+  become_user: postgres
+  block:
+    - name: create stork database user
+      community.postgresql.postgresql_user:
+        name: stork
+        password: "{{ stork_db_password }}"
+      no_log: true
+
+    - name: create stork database
+      community.postgresql.postgresql_db:
+        name: stork
+        owner: stork
+    
+    - name: enable pgcrypto
+      community.postgresql.postgresql_ext:
+        db: stork
+        name: pgcrypto
+
+- name: write kea api password
+  ansible.builtin.copy:
+    content: "{{ kea_api_password }}"
+    dest: /etc/kea/kea-api-password
+    owner: _kea
+    group: _kea
+    mode: "640"
+  no_log: true
+  notify: restart kea ctrl agent
+
+- name: write kea dhcp4 config
+  ansible.builtin.template:
+    src: kea-dhcp4.conf.j2
+    dest: /etc/kea/kea-dhcp4.conf
+    owner: _kea
+    group: _kea
+    mode: "644"
+    validate: kea-dhcp4 -t %s
+  notify: restart kea dhcp4
+
+- name: enable kea
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - isc-kea-dhcp4-server
+    - isc-kea-ctrl-agent
+
+- name: write stork server config
+  ansible.builtin.template:
+    src: server.env.j2
+    dest: /etc/stork/server.env
+    mode: "640"
+  no_log: true
+  notify: restart stork server
+
+- name: enable stork server
+  ansible.builtin.systemd_service:
+    name: isc-stork-server
+    enabled: true
+    state: started
+
+- name: wait for stork server
+  ansible.builtin.wait_for:
+    port: "{{ stork_server_port }}"
+    timeout: 20
+
+- module_defaults:
+    community.postgresql.postgresql_query:
+      login_host: localhost
+      login_user: stork
+      login_password: "{{ stork_db_password }}"
+      db: stork
+  block:
+    - name: clear stork force password change modal
+      community.postgresql.postgresql_query:
+        query: UPDATE "system_user" SET change_password = false where login = 'admin' AND change_password
+
+    - name: read stork server token
+      community.postgresql.postgresql_query:
+        query: SELECT content FROM secret WHERE name = 'srvtkn'
+      register: stork_server_token
+      no_log: true
+      changed_when: false
+
+- name: write stork agent config
+  ansible.builtin.template:
+    src: agent.env.j2
+    dest: /etc/stork/agent.env
+    mode: "644"
+  notify: restart stork agent
+
+- name: check stork agent registration
+  ansible.builtin.stat:
+    path: /var/lib/stork-agent/certs/cert.pem
+  register: stork_agent_cert
+
+- name: register stork agent
+  ansible.builtin.command: >-
+    stork-agent register
+    --non-interactive
+    --server-url http://{{ ansible_host }}:{{ stork_server_port }}
+    --agent-host {{ ansible_host }} --agent-port {{ stork_agent_port }}
+    --server-token {{ stork_server_token.query_result[0].content }}
+  become: true
+  become_user: stork-agent
+  no_log: true
+  when: not stork_agent_cert.stat.exists
+  changed_when: true
+
+- name: enable stork agent
+  ansible.builtin.systemd_service:
+    name: isc-stork-agent
+    enabled: true
+    state: started

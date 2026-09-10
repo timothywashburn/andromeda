@@ -70,4 +70,4 @@
 
     - name: wait for ssh
       ansible.builtin.wait_for_connection:
-        timeout: 60
+        timeout: 10

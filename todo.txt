@@ -2,3 +2,5 @@ put qemu guest agent on all vms
 add dns server like pihole with 1.1.1.1
 
 rename gateway node to gateway host
+
+netbird timeout for having to re log in on my mac should be longer it seems like 24hrs rn

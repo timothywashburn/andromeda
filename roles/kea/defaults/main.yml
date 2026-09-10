@@ -1,0 +1,20 @@
+kea_repo_url: https://dl.cloudsmith.io/public/isc/kea-3-0/deb/debian
+kea_repo_key: https://dl.cloudsmith.io/public/isc/kea-3-0/gpg.B16C44CD45514C3C.key
+stork_repo_url: https://dl.cloudsmith.io/public/isc/stork/deb/debian
+stork_repo_key: https://dl.cloudsmith.io/public/isc/stork/gpg.77F64EC28053D1FB.key
+
+kea_version: "3.0.4"
+stork_version: "2.4.1"
+
+kea_subnet: "{{ homelab_networks[0].cidr }}"
+kea_pool_start: 10.127.0.150
+kea_pool_end: 10.127.0.199
+kea_gateway: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+kea_dns: "{{ kea_gateway }}"
+
+kea_warewulf_host: "{{ hostvars[groups.warewulf_vm | first].ansible_host }}"
+kea_boot_file: warewulf/ipxe-snponly-x86_64.efi
+
+stork_server_port: 8080
+stork_agent_port: 8081
+stork_token_file: /andromeda/.stork-server-token
