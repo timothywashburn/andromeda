@@ -11,8 +11,6 @@ warewulf_chroot: "/var/lib/warewulf/chroots/{{ warewulf_image_name }}/rootfs"
 warewulf_overlay_dir: /var/lib/warewulf/overlays
 
 warewulf_storage_host: "{{ hostvars[groups.storage | first].ansible_host }}"
-warewulf_initiator_iqn_base: ***REMOVED***
-warewulf_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas
 
 warewulf_custom_system_overlays:
   - iscsi.initiator

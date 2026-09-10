@@ -1,0 +1,3 @@
+k3s_dataset: "{{ storage_pool.name }}/k3s"
+k3s_node_disk_gb: 16
+iscsi_portal_comment: andromeda-lan

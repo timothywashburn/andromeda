@@ -1,0 +1,181 @@
+- name: get k3s datasets
+  vars:
+    payload:
+      - [name, "^", "{{ k3s_dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
+  register: k3s_datasets
+  changed_when: false
+
+- name: extract dataset names
+  ansible.builtin.set_fact:
+    k3s_dataset_names: "{{ k3s_datasets.stdout | from_json | map(attribute='name') | list }}"
+
+- name: create k3s parent dataset
+  vars:
+    payload:
+      name: "{{ k3s_dataset }}"
+      type: FILESYSTEM
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  when: k3s_dataset not in k3s_dataset_names
+  changed_when: true
+
+- name: create zvols for k3s cached data
+  vars:
+    payload:
+      name: "{{ k3s_dataset }}/{{ item }}"
+      type: VOLUME
+      volsize: "{{ k3s_node_disk_gb * 1024 * 1024 * 1024 }}"
+      sparse: true
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  loop: "{{ groups.warewulf_nodes }}"
+  when: k3s_dataset ~ "/" ~ item not in k3s_dataset_names
+  changed_when: true
+
+- name: get iscsi target service
+  vars:
+    payload:
+      - [service, "=", iscsitarget]
+  ansible.builtin.command:
+    argv: [midclt, call, service.query, "{{ payload | to_json }}"]
+  register: iscsi_service
+  changed_when: false
+
+- name: enable iscsi target service
+  vars:
+    payload:
+      enable: true
+  ansible.builtin.command:
+    argv: [midclt, call, service.update, iscsitarget, "{{ payload | to_json }}"]
+  when: not (iscsi_service.stdout | from_json)[0].enable
+  changed_when: true
+
+- name: start iscsi target service
+  ansible.builtin.command:
+    argv: [midclt, call, service.start, iscsitarget]
+  when: (iscsi_service.stdout | from_json)[0].state != "RUNNING"
+  changed_when: true
+
+- name: get iscsi portals
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.portal.query]
+  register: iscsi_portals
+  changed_when: false
+
+- name: create iscsi portal
+  vars:
+    payload:
+      comment: "{{ iscsi_portal_comment }}"
+      listen:
+        - ip: "{{ ansible_host }}"
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.portal.create, "{{ payload | to_json }}"]
+  when: iscsi_portal_comment not in (iscsi_portals.stdout | from_json | map(attribute='comment'))
+  changed_when: true
+
+- name: get iscsi initator groups
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.initiator.query]
+  register: iscsi_initiators
+  changed_when: false
+
+- name: create initiator groups
+  vars:
+    payload:
+      comment: "{{ item }}"
+      initiators:
+        - "{{ iscsi_initiator_iqn_base }}:{{ item }}"
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.initiator.create, "{{ payload | to_json }}"]
+  loop: "{{ groups.warewulf_nodes }}"
+  when: item not in (iscsi_initiators.stdout | from_json | map(attribute='comment'))
+  changed_when: true
+
+- name: re-fetch updated iscsi portals
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.portal.query]
+  register: iscsi_portals
+  changed_when: false
+
+- name: re-fetch updated iscsi initator groups
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.initiator.query]
+  register: iscsi_initiators
+  changed_when: false
+
+- name: extract portal and initiator ids
+  ansible.builtin.set_fact:
+    iscsi_portal_id: "{{ (iscsi_portals.stdout | from_json | selectattr('comment', 'eq', iscsi_portal_comment) | first).id }}"
+    initiator_ids: "{{ iscsi_initiators.stdout | from_json | items2dict(key_name='comment', value_name='id') }}"
+
+- name: get iscsi targets
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.target.query]
+  register: iscsi_targets
+  changed_when: false
+
+- name: create iscsi targets
+  vars:
+    payload:
+      name: "{{ item }}"
+      groups:
+        - portal: "{{ iscsi_portal_id }}"
+          initiator: "{{ initiator_ids[item] }}"
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.target.create, "{{ payload | to_json }}"]
+  loop: "{{ groups.warewulf_nodes }}"
+  when: item not in (iscsi_targets.stdout | from_json | map(attribute='name'))
+  changed_when: true
+
+- name: get iscsi extents
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.extent.query]
+  register: iscsi_extents
+  changed_when: false
+
+- name: create iscsi extents
+  vars:
+    payload:
+      name: "{{ item }}"
+      disk: "zvol/{{ k3s_dataset }}/{{ item }}"
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.extent.create, "{{ payload | to_json }}"]
+  loop: "{{ groups.warewulf_nodes }}"
+  when: item not in (iscsi_extents.stdout | from_json | map(attribute='name'))
+  changed_when: true
+
+- name: re-fetch updated iscsi targets
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.target.query]
+  register: iscsi_targets
+  changed_when: false
+
+- name: re-fetch updated iscsi extents
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.extent.query]
+  register: iscsi_extents
+  changed_when: false
+
+- name: get target extent links
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.targetextent.query]
+  register: iscsi_targetextents
+  changed_when: false
+
+- name: extract target and extent ids
+  ansible.builtin.set_fact:
+    target_ids: "{{ iscsi_targets.stdout | from_json | items2dict(key_name='name', value_name='id') }}"
+    extent_ids: "{{ iscsi_extents.stdout | from_json | items2dict(key_name='name', value_name='id') }}"
+
+- name: create links between targets and extents
+  vars:
+    payload:
+      target: "{{ target_ids[item] }}"
+      extent: "{{ extent_ids[item] }}"
+  ansible.builtin.command:
+    argv: [midclt, call, iscsi.targetextent.create, "{{ payload | to_json }}"]
+  loop: "{{ groups.warewulf_nodes }}"
+  when: target_ids[item] not in (iscsi_targetextents.stdout | from_json | map(attribute='target'))
+  changed_when: true
