@@ -10,7 +10,8 @@
   gather_facts: false
   tasks:
     - ansible.builtin.import_role:
-        name: k3s_control_plane
+        name: k3s
+        tasks_from: k3s_control_plane
 
 - name: set up warewulf
   hosts: warewulf_vm
@@ -25,3 +26,11 @@
   tasks:
     - ansible.builtin.import_role:
         name: kea
+
+- name: set up k3s agent vms
+  hosts: warewulf_nodes
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_role:
+        name: k3s
+        tasks_from: k3s_vms

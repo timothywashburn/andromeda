@@ -27,7 +27,7 @@
         memory: "{{ vm_memory_mb }}"
         scsihw: virtio-scsi-single
         boot: "order=scsi0"
-        agent: true
+        # agent: true
         citype: nocloud
         ciuser: root
         cipassword: "{{ temp_password }}" # TODO: temp
