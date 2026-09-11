@@ -83,5 +83,5 @@
     creates: /usr/local/bin/k3s
   environment:
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
-    INSTALL_K3S_EXEC: --node-taint CriticalAddonsOnly=true:NoExecute
+    INSTALL_K3S_EXEC: --node-name control-plane --node-taint CriticalAddonsOnly=true:NoExecute
   ansible.builtin.command: /usr/local/bin/k3s-install.sh
