@@ -5,6 +5,8 @@ rename gateway node to gateway host (unsure if this has to be on rebuild probabl
 
 scrub public ip and make this repo public
 
+ensure that all traffic goes through gateway
+
 look at on rebuild
 - check todos (I think there's at least one there)
 - rename truenas thing from main
