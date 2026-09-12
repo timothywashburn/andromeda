@@ -108,6 +108,12 @@
       no_log: true
       when: netbird_admin_account is not skipped
 
+    - name: increase netbird peer session expiration 
+      community.ansible_netbird.netbird_account:
+        peer_login_expiration_enabled: true
+        peer_login_expiration: "{{ 30 * 24 * 60 * 60 }}"
+      delegate_to: localhost
+
     # client setup
 
     - name: add netbird repository

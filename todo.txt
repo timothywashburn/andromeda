@@ -3,8 +3,6 @@ add dns server like pihole with 1.1.1.1
 
 rename gateway node to gateway host (unsure if this has to be on rebuild probably not?)
 
-netbird timeout for having to re log in on my mac should be longer it seems like 24hrs rn
-
 scrub public ip and make this repo public
 
 look at on rebuild
