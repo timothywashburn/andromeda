@@ -98,10 +98,16 @@
     state: present
     update_cache: true
 
+- name: download helm installer
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
+    dest: /usr/local/bin/get-helm.sh
+    mode: "755"
+
 - name: install helm
   args:
     creates: /usr/local/bin/helm
-  ansible.builtin.shell: curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
+  ansible.builtin.command: /usr/local/bin/get-helm.sh
 
 - environment:
     K8S_AUTH_KUBECONFIG: /etc/rancher/k3s/k3s.yaml
