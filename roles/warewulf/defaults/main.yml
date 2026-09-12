@@ -9,6 +9,12 @@ warewulf_overlay_dir: /var/lib/warewulf/overlays
 
 warewulf_storage_host: "{{ hostvars[groups.storage | first].ansible_host }}"
 
+warewulf_node_temp_mount: /mnt/node-temp
+warewulf_node_temp_binds:
+  - /var/lib/rancher/k3s # where container images are stored
+  - /var/lib/kubelet # where emptyDir file systems are stored
+  - /var/log/pods # container logs
+
 warewulf_custom_system_overlays:
   - iscsi.initiator
   - k3s.storage

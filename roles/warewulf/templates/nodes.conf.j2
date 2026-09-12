@@ -58,8 +58,14 @@ nodes:
     resources:
       fstab:
         - spec: /dev/disk/by-path/ip-{{ hostvars[groups.storage | first].ansible_host }}:3260-iscsi-{{ iscsi_target_iqn_base }}:{{ node }}-lun-0
-          file: /var/lib/rancher
+          file: {{ warewulf_node_temp_mount }}
           vfstype: ext4
-          mntops: _netdev,noatime,x-systemd.makefs,x-systemd.requires=k3s-iscsi.service
+          mntops: _netdev,noatime,x-systemd.requires=k3s-iscsi.service
+{% for path in warewulf_node_temp_binds %}
+        - spec: {{ warewulf_node_temp_mount }}{{ path }}
+          file: {{ path }}
+          vfstype: none
+          mntops: bind,_netdev,x-systemd.requires=node-temp-dirs.service
+{% endfor %}
 {% endfor %}
 

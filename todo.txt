@@ -11,6 +11,8 @@ emptyDir is stored in kubelet and thus is tmpfs
 change the mount dir from /var/lib/rancher to some more generic dir and symlink
 wipe the temp data on startup
 
+scrub public ip and make this repo public
+
 look at on rebuild
 - check todos (I think there's at least one there)
 - rename truenas thing from main

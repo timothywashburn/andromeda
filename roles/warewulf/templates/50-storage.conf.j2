@@ -1,3 +1,4 @@
 [Unit]
-Requires=var-lib-rancher.mount
-After=var-lib-rancher.mount
+{% for path in warewulf_node_temp_binds %}
+RequiresMountsFor=[[ path ]]
+{% endfor %}

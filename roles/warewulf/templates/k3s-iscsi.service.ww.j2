@@ -11,4 +11,5 @@ RemainAfterExit=yes
 ExecStart=/usr/sbin/iscsiadm -m discovery -t sendtargets -p [[ warewulf_storage_host ]]:3260
 ExecStart=/usr/sbin/iscsiadm -m node -T [[ iscsi_target_iqn_base ]]:{{$.Id}} -p [[ warewulf_storage_host ]]:3260 --login
 ExecStartPost=/usr/bin/udevadm settle --timeout=10
+ExecStartPost=/sbin/mkfs.ext4 -F -q -L node-temp /dev/disk/by-path/ip-[[ warewulf_storage_host ]]:3260-iscsi-[[ iscsi_target_iqn_base ]]:{{$.Id}}-lun-0
 ExecStop=/usr/sbin/iscsiadm -m node -T [[ iscsi_target_iqn_base]]:{{$.Id}} -p [[ warewulf_storage_host ]]:3260 --logout

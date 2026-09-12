@@ -185,6 +185,19 @@
     force: true
   notify: build node image
 
+- name: create journald config directory in image
+  ansible.builtin.file:
+    path: "{{ warewulf_chroot }}/etc/systemd/journald.conf.d/"
+    state: directory
+    mode: "755"
+
+- name: write journald config to image
+  ansible.builtin.template:
+    src: 50-ephemeral-journald.conf.j2
+    dest: "{{ warewulf_chroot }}/etc/systemd/journald.conf.d/50-ephemeral-journald.conf"
+    mode: "644"
+  notify: build node image
+
 - name: create overlays
   module_defaults:
     ansible.builtin.template:
@@ -225,6 +238,13 @@
         force: true
       notify: build overlays
 
+    - name: write node temp directory service overlay
+      ansible.builtin.template:
+        src: node-temp-dirs.service.j2
+        dest: "{{ warewulf_overlay_dir }}/k3s.storage/rootfs/etc/systemd/system/node-temp-dirs.service"
+        mode: "644"
+      notify: build overlays
+
     - name: wire k3s agent storage dependency overlay
       ansible.builtin.template:
         src: 50-storage.conf.j2
@@ -241,7 +261,7 @@
 
     - name: write k3s agent config
       ansible.builtin.template:
-        src: k3s-agent-config.yaml.j2
+        src: 50-k3s-agent-config.yaml.j2
         dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/rancher/k3s/config.yaml.d/50-k3s-agent-config.yaml"
         mode: "600"
       no_log: true

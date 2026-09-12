@@ -1,6 +1,3 @@
 # [[ ansible_managed ]]
 server: https://[[ hostvars[groups.k3s_control_plane | first].ansible_host ]]:6443
 token: [[ k3s_token_file.content | b64decode | trim ]]
-# TODO: remove
-# kubelet-arg:
-#   - root-dir=/var/lib/rancher/kubelet

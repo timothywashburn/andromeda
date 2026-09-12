@@ -1,0 +1,9 @@
+[Unit]
+RequiresMountsFor=[[ warewulf_node_temp_mount ]]
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+{% for path in warewulf_node_temp_binds %}
+ExecStart=/bin/mkdir -p [[ warewulf_node_temp_mount ]][[ path ]] [[ path ]]
+{% endfor %}
