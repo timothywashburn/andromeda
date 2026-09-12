@@ -1,0 +1,42 @@
+- name: get k3s persistent datasets
+  vars:
+    payload:
+      - [name, "^", "{{ k3s_persistent_data.dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
+  register: k3s_dataset
+  changed_when: false
+
+- name: create parent dataset
+  vars:
+    payload:
+      name: "{{ k3s_persistent_data.dataset }}"
+      type: FILESYSTEM
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  when: (k3s_dataset.stdout | from_json) | length == 0
+  changed_when: true
+
+- name: get state of nfs service
+  vars:
+    payload:
+      - [service, "=", nfs]
+  ansible.builtin.command:
+    argv: [midclt, call, service.query, "{{ payload | to_json }}"]
+  register: nfs_service
+  changed_when: false
+
+- name: enable nfs service
+  vars:
+    payload:
+      enable: true
+  ansible.builtin.command:
+    argv: [midclt, call, service.update, nfs, "{{ payload | to_json }}"]
+  when: not (nfs_service.stdout | from_json)[0].enable
+  changed_when: true
+
+- name: start nfs service
+  ansible.builtin.command:
+    argv: [midclt, call, service.start, nfs]
+  when: (nfs_service.stdout | from_json)[0].state != "RUNNING"
+  changed_when: true

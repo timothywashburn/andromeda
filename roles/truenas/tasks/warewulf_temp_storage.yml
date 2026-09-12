@@ -1,37 +1,37 @@
-- name: get k3s datasets
+- name: get warewulf node temp disk datasets
   vars:
     payload:
-      - [name, "^", "{{ k3s_dataset }}"]
+      - [name, "^", "{{ warewulf_temp_data.dataset }}"]
   ansible.builtin.command:
     argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
-  register: k3s_datasets
+  register: warewulf_datasets
   changed_when: false
 
 - name: extract dataset names
   ansible.builtin.set_fact:
-    k3s_dataset_names: "{{ k3s_datasets.stdout | from_json | map(attribute='name') | list }}"
+    warewulf_dataset_names: "{{ warewulf_datasets.stdout | from_json | map(attribute='name') | list }}"
 
-- name: create k3s parent dataset
+- name: create parent dataset
   vars:
     payload:
-      name: "{{ k3s_dataset }}"
+      name: "{{ warewulf_temp_data.dataset }}"
       type: FILESYSTEM
   ansible.builtin.command:
     argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
-  when: k3s_dataset not in k3s_dataset_names
+  when: warewulf_temp_data.dataset not in warewulf_dataset_names
   changed_when: true
 
-- name: create zvols for k3s cached data
+- name: create zvols for warewulf temp data
   vars:
     payload:
-      name: "{{ k3s_dataset }}/{{ item }}"
+      name: "{{ warewulf_temp_data.dataset }}/{{ item }}"
       type: VOLUME
-      volsize: "{{ k3s_node_disk_gb * 1024 * 1024 * 1024 }}"
+      volsize: "{{ warewulf_temp_data.storage_gb * 1024 * 1024 * 1024 }}"
       sparse: true
   ansible.builtin.command:
     argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
   loop: "{{ groups.warewulf_nodes }}"
-  when: k3s_dataset ~ "/" ~ item not in k3s_dataset_names
+  when: warewulf_temp_data.dataset ~ "/" ~ item not in warewulf_dataset_names
   changed_when: true
 
 - name: get iscsi target service
@@ -139,7 +139,7 @@
   vars:
     payload:
       name: "{{ item }}"
-      disk: "zvol/{{ k3s_dataset }}/{{ item }}"
+      disk: "zvol/{{ warewulf_temp_data.dataset }}/{{ item }}"
   ansible.builtin.command:
     argv: [midclt, call, iscsi.extent.create, "{{ payload | to_json }}"]
   loop: "{{ groups.warewulf_nodes }}"

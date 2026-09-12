@@ -1,9 +1,17 @@
-- name: set up truenas k3s storage
+- name: set up truenas temp disk storage for warewulf nodes
   hosts: storage
   tasks:
     - ansible.builtin.import_role:
         name: truenas
-        tasks_from: k3s_storage
+        tasks_from: warewulf_temp_storage
+
+# consider merging with above?
+- name: setup k3s persistent storage
+  hosts: storage
+  tasks:
+    - ansible.builtin.import_role:
+        name: truenas
+        tasks_from: k3s_persistent_storage
 
 - name: set up k3s control plane
   hosts: k3s_control_plane

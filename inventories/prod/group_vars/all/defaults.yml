@@ -16,3 +16,11 @@ proxmox_module_defaults:
   ca_path: "{{ local_proxmox_ca_path }}"
 
 opnsense_api_delegate: "{{ groups.gateway_node | first }}"
+
+warewulf_temp_data:
+  dataset: "{{ storage_pool.name }}/warewulf-node-temp"
+  storage_gb: 16
+
+k3s_persistent_data:
+  dataset_suffix: "k3s-data"
+  dataset: "{{ storage_pool.name }}/{{ k3s_persistent_data.dataset_suffix }}"

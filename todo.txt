@@ -6,3 +6,11 @@ rename gateway node to gateway host
 netbird timeout for having to re log in on my mac should be longer it seems like 24hrs rn
 
 rename k3s-control-plane-vm01 node name in k3s (probably just control-plane)
+
+emptyDir is stored in kubelet and thus is tmpfs
+change the mount dir from /var/lib/rancher to some more generic dir and symlink
+wipe the temp data on startup
+
+look at on rebuild
+- check todos (I think there's at least one there)
+- rename truenas thing from main

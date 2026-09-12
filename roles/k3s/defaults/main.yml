@@ -1,0 +1,4 @@
+# used on the truenas side
+truenas_api_key_name: k3s-csi
+# used on the k3s side
+truenas_csi_secret: truenas-api-key

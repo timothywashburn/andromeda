@@ -85,3 +85,131 @@
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
     INSTALL_K3S_EXEC: --node-name control-plane --node-taint CriticalAddonsOnly=true:NoExecute
   ansible.builtin.command: /usr/local/bin/k3s-install.sh
+
+# truenas api key + helm csi driver
+
+- name: install dependencies 
+  ansible.builtin.apt:
+    name: 
+      - curl
+      - python3-kubernetes # python kubernetes bridge for ansible
+      - nfs-common
+      - open-iscsi
+    state: present
+    update_cache: true
+
+- name: install helm
+  args:
+    creates: /usr/local/bin/helm
+  ansible.builtin.shell: curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
+
+- environment:
+    K8S_AUTH_KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  block:
+    - name: create truenas csi namespace
+      kubernetes.core.k8s:
+        name: truenas-csi
+        kind: Namespace
+        state: present
+    
+    - name: check k3s for truenas api key
+      kubernetes.core.k8s_info:
+        name: "{{ truenas_csi_secret }}"
+        kind: Secret
+        namespace: truenas-csi
+      register: api_key_secret
+
+    # if there is no k3s secret, then we must check to see if there's already are API key(s) with the same name
+    - name: look for previous orphaned truenas api keys
+      vars:
+        payload:
+          - [name, "=", "{{ truenas_api_key_name }}"]
+      ansible.builtin.command:
+        argv: [midclt, call, api_key.query, "{{ payload | to_json }}"]
+      delegate_to: "{{ groups.storage | first }}"
+      register: orphaned_api_keys
+      when: api_key_secret.resources | length == 0
+      changed_when: false
+
+    # if there are API key(s), we need to delete and replace it because there's no way to read them again
+    - name: delete orphaned truenas api keys
+      ansible.builtin.command:
+        argv: [midclt, call, api_key.delete, "{{ item.id | string }}"]
+      delegate_to: "{{ groups.storage | first }}"
+      loop: "{{ orphaned_api_keys.stdout | default('[]') | from_json }}"
+      changed_when: true
+
+    - name: create truenas api key
+      vars:
+        payload:
+          name: "{{ truenas_api_key_name }}"
+          username: "{{ hostvars[groups.storage | first].ansible_user }}"
+      ansible.builtin.command:
+        argv: [midclt, call, api_key.create, "{{ payload | to_json }}"]
+      delegate_to: "{{ groups.storage | first }}"
+      register: new_api_key
+      no_log: true
+      when: api_key_secret.resources | length == 0
+      changed_when: true
+
+    - name: create k3s secret with truenas api key
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          kind: Secret
+          metadata:
+            name: "{{ truenas_csi_secret }}"
+            namespace: truenas-csi
+          stringData:
+            api-key: "{{ (new_api_key.stdout | from_json).key }}"
+      no_log: true
+      when: api_key_secret.resources | length == 0
+
+    - name: add truenas csi helm repo
+      kubernetes.core.helm_repository:
+        name: truenas-csi
+        repo_url: https://raw.githubusercontent.com/truenas/truenas-csi/master/charts
+
+    - name: install truenas-csi helm chart
+      kubernetes.core.helm:
+        name: truenas-csi
+        chart_ref: truenas-csi/truenas-csi
+        chart_version: 1.3.0
+        release_namespace: truenas-csi
+        values:
+          truenas:
+            url: "wss://{{ hostvars[groups.storage | first].ansible_host }}"
+            defaultPool: "{{ hostvars[groups.storage | first].storage_pool.name }}"
+            insecureSkipTLS: true
+            existingSecret: "{{ truenas_csi_secret }}"
+          storageClasses:
+            - name: truenas-nfs
+              isDefault: true
+              reclaimPolicy: Delete
+              volumeBindingMode: Immediate
+              parameters:
+                protocol: nfs
+                datasetPath: "{{ k3s_persistent_data.dataset_suffix }}/nfs"
+                compression: LZ4
+            - name: truenas-iscsi
+              reclaimPolicy: Delete
+              volumeBindingMode: Immediate
+              mountOptions:
+                - discard
+              parameters:
+                protocol: iscsi
+                datasetPath: "{{ k3s_persistent_data.dataset_suffix }}/iscsi"
+                compression: LZ4
+                volblocksize: 16K
+                sparse: true
+
+    - name: remove default annotation from local-path storage
+      kubernetes.core.k8s:
+        state: patched
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+        name: local-path
+        definition:
+          metadata:
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "false"

@@ -15,7 +15,8 @@ warewulf_custom_system_overlays:
   - k3s.agent
 
 warewulf_image_packages:
-  - open-iscsi # truenas
+  - nfs-common # truenas nfs storage
+  - open-iscsi # truenas zvol block stoage
   - e2fsprogs # truenas
   - conntrack # kube-proxy
   - socat # kubectl port-forward
