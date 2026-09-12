@@ -1,15 +1,9 @@
 put qemu guest agent on all vms
 add dns server like pihole with 1.1.1.1
 
-rename gateway node to gateway host
+rename gateway node to gateway host (unsure if this has to be on rebuild probably not?)
 
 netbird timeout for having to re log in on my mac should be longer it seems like 24hrs rn
-
-rename k3s-control-plane-vm01 node name in k3s (probably just control-plane)
-
-emptyDir is stored in kubelet and thus is tmpfs
-change the mount dir from /var/lib/rancher to some more generic dir and symlink
-wipe the temp data on startup
 
 scrub public ip and make this repo public
 
