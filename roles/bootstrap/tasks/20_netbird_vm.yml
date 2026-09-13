@@ -23,6 +23,7 @@
           - docker-compose-plugin
         state: present
         update_cache: true
+        
     - name: enable qemu guest agent
       ansible.builtin.systemd:
         name: qemu-guest-agent
