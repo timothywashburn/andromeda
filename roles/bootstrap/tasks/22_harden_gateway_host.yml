@@ -1,0 +1,33 @@
+- name: "lockout guard: ensure that gateway host is reachable through lan ip"
+  ansible.builtin.wait_for:
+    host: "{{ lan_ip }}"
+    port: 22
+    timeout: 5
+    msg: cannot reach gateway host through lan ip ({{ lan_ip }}). cannot proceed with hardening
+  delegate_to: localhost
+
+- name: reset gateway host to internal ip
+  ansible.builtin.set_fact:
+    ansible_host: "{{ lan_ip }}"
+
+- name: final confirmation that ssh works over internal ip
+  ansible.builtin.ping:
+
+- name: ensure markers directory exists
+  ansible.builtin.file:
+    path: "{{ markers_dir }}"
+    state: directory
+    mode: "755"
+  delegate_to: localhost
+
+- name: create hardening lockout guard marker
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ hardening_lockout_guard_marker }}"
+    mode: "644"
+  delegate_to: localhost
+
+- name: remove wan ip from gateway host
+  ansible.builtin.include_tasks: configure_interfaces.yml
+  vars:
+    gateway: lan

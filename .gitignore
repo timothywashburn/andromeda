@@ -1,5 +1,6 @@
 .ansible/
 .idea/
+markers/
 .DS_Store
 secrets.yml
 netbird_pat.yml

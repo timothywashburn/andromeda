@@ -17,6 +17,9 @@ proxmox_module_defaults:
 
 opnsense_api_delegate: "{{ groups.gateway_node | first }}"
 
+markers_dir: "{{ inventory_dir }}/markers"
+hardening_lockout_guard_marker: "{{ markers_dir }}/hardening-lockout-guard"
+
 warewulf_temp_data:
   dataset: "{{ storage_pool.name }}/warewulf-node-temp"
   storage_gb: 16

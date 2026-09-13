@@ -14,6 +14,7 @@
     - name: set gateway host to non internal ip
       ansible.builtin.set_fact:
         ansible_host: "{{ wan_ip }}"
+      when: not hardening_lockout_guard_marker is exists
 
 - name: configure internal nodes for bootstrapping
   hosts: internal:!gateway_node
@@ -23,6 +24,7 @@
         ansible_ssh_common_args: >-
           -J root@{{ hostvars[groups.gateway_node | first].ansible_host }}
           -o StrictHostKeyChecking=accept-new
+      when: not hardening_lockout_guard_marker is exists
 
 # ==== BEGIN BOOTSTRAPPING ====
 
@@ -127,3 +129,13 @@
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 21_caddy_rev_proxy.yml
+
+# ==== BEGIN HARDENING ====
+
+- name: harden gateway host
+  hosts: gateway_node
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: 22_harden_gateway_host.yml

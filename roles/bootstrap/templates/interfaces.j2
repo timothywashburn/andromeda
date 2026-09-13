@@ -5,8 +5,12 @@ iface lo inet loopback
 iface wan0 inet manual
 
 auto vmbr0
+{% if hardening_lockout_guard_marker is exists %}
+iface vmbr0 inet manual
+{% else %}
 iface vmbr0 inet static
 	address {{ wan_ip }}/22
+{% endif %}
 {% if gateway == "wan" %}
 	gateway 192.168.4.1
 {% endif %}

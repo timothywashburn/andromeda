@@ -62,6 +62,12 @@
     - update initramfs
     - reboot
 
+- name: point etc hosts at internal ip
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '{{ inventory_hostname }}.internal'
+    line: "{{ lan_ip }} {{ inventory_hostname }}.internal {{ inventory_hostname }}"
+
 - name: check if host has already switched to vm gateway
   ansible.builtin.stat:
     path: /andromeda/markers/lan-gateway
