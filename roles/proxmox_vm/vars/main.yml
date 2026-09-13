@@ -1,0 +1,53 @@
+vm_defaults:
+  name: "{{ inventory_hostname | replace('_', '-') }}"
+  cores: 2
+  memory_mb: 2048
+  storage_gb: 16
+  agent: true
+  net:
+    net0: virtio,bridge=vmbr1,firewall=0
+
+vm_templates:
+  cloud:
+    image: "{{ debian_cloud_image }}"
+    disk: import
+    bios: seabios
+    boot: order=scsi0
+    serial:
+      serial0: socket
+    ide:
+      ide2: local-lvm:cloudinit
+    ci:
+      citype: nocloud
+      ciuser: "{{ ansible_user }}"
+      cipassword: "{{ temp_password }}" # TODO: temp
+      sshkeys: "{{ public_ssh_keys | join('\n') }}"
+      nameservers: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+      ipconfig:
+        ipconfig0: "ip={{ ansible_host }}/24,gw={{ hostvars[groups.gateway_vm | first].ansible_host }}"
+    wait:
+      method: connection
+      timeout: 30
+
+  iso:
+    disk: empty
+    bios: seabios
+    boot: order=scsi0;ide2
+    ide:
+      ide2: "local:iso/{{ vm_config.image.file }},media=cdrom"
+
+  pxe:
+    bios: ovmf
+    boot: order=net0
+    efidisk0:
+      storage: local-lvm
+      format: raw
+      efitype: 4m
+      pre_enrolled_keys: false
+    net:
+      net0: "virtio={{ mac }},bridge=vmbr1,firewall=0"
+    serial:
+      serial0: socket
+    wait:
+      method: port
+      timeout: 120

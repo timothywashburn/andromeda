@@ -15,6 +15,12 @@ iscsi_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas
 public_ssh_keys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCnboXZxkQPUckgMBTycafCebFMm7pHamiyApuD1a/Nhr5o+BRsHnZA27ngCgwNbpLlVtt18pDMRlTR3QWf0Vgu3YekYhL5zm7R/o46b9nHp1JwuRO6kfYaOlXz65KbwjHgeb4d5Nwk3V2YJq7cpiAsFibExkJO6ieY1LSEldJJP7izLmf0+RitqoyyaUdVJrNA9q1bbY9AJjo1Gs1SpXtg/BPROnTjAxwftsR68vZtOkS7ytb0ml64XQ6xLs7BI4NyQaxAbMcAjcwqu1JCF+h2fNjZJPIt0LkFaZtbcsMEPixYvBgNYXoo5sFqqFFLLwie16DWx2EG9Zql1Bx+pik3jEPginqWwAbikWpHa40VKZ3Xb2Y/5ja/OkCAs9pbirK6B6MYmaFIck4Qgyn3afdHj4qyLeronw2SGcw3mUSBZ3CSRB7oXrohBQJIHrCd9d9Dx5JJ0WRd6wcLRxx/f1BcvdDio3T696a+IhcsbPKZrmzHjX3nlLfNmHormD4zjiiBixg+pnVSEzDnbt7jmjkN76OqCa0PmY3jifuqIhqEtTKYbrPUo7t8KEKqkskCN6wS0683MqxidwEn2JoKLYZxzlPmJOSqMj28cWhkkO1FWYdVSer5LWJOqqit+RupS5fd5/5jsStJAMQy//eqShp1VbZi2RaX9Yz6RenG+qkFwQ== timothy@Timothys-MacBook-Pro.local
 
+opnsense_iso_image:
+  base_url: "https://pkg.opnsense.org/releases/26.7"
+  file: OPNsense-26.7-dvd-amd64.iso
+  compression: bz2
+  checksum: "sha256:{{ opnsense_iso_image.base_url }}/OPNsense-26.7-checksums-amd64.sha256"
+  
 debian_cloud_image:
   suite: trixie
   base_url: https://cloud.debian.org/images/cloud/trixie/20260819-2575

@@ -16,6 +16,8 @@
 - name: set up k3s control plane
   hosts: k3s_control_plane
   gather_facts: false
+  roles:
+    - proxmox_vm
   tasks:
     - ansible.builtin.import_role:
         name: k3s
@@ -24,6 +26,8 @@
 - name: set up warewulf
   hosts: warewulf_vm
   gather_facts: false
+  roles:
+    - proxmox_vm
   tasks:
     - ansible.builtin.import_role:
         name: warewulf
@@ -31,6 +35,8 @@
 - name: set up kea
   hosts: kea_vm
   gather_facts: false
+  roles:
+    - proxmox_vm
   tasks:
     - ansible.builtin.import_role:
         name: kea
@@ -38,7 +44,5 @@
 - name: set up k3s agent vms
   hosts: warewulf_nodes
   gather_facts: false
-  tasks:
-    - ansible.builtin.import_role:
-        name: k3s
-        tasks_from: k3s_vms
+  roles:
+    - proxmox_vm

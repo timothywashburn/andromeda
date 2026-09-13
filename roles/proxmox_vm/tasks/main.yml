@@ -1,0 +1,111 @@
+- ansible.builtin.import_role:
+    name: bootstrap
+    tasks_from: fetch_proxmox_ca.yml
+
+- ansible.builtin.meta: end_role
+  when: vm_config is not defined
+
+- name: set up vm config
+  ansible.builtin.set_fact:
+    # the syntax for this is a bit funky looking but this effectively runs combine(all 3 things)
+    vm_config: "{{ vm_defaults | combine(vm_templates[vm_config.template], vm_config, recursive=true) }}"
+
+- module_defaults:
+    group/community.proxmox.proxmox: "{{ proxmox_module_defaults }}"
+  block:
+    - when: vm_config.image is defined
+      vars:
+        image_dest: "/var/lib/vz/{{ 'import' if vm_config.disk == 'import' else 'template/iso' }}/{{ vm_config.image.file }}"
+        image_suffix: "{{ '.' ~ vm_config.image.compression if vm_config.image.compression is defined else '' }}"
+      delegate_to: "{{ vm_config.node }}"
+      block:
+        - name: check for decompressed image
+          ansible.builtin.stat:
+            path: "{{ image_dest }}"
+            get_checksum: false
+          register: decompressed_image
+          when: vm_config.image.compression is defined
+
+        - name: download image
+          ansible.builtin.get_url:
+            url: "{{ vm_config.image.base_url }}/{{ vm_config.image.file }}{{ image_suffix }}"
+            dest: "{{ image_dest }}{{ image_suffix }}"
+            checksum: "{{ vm_config.image.checksum }}"
+            mode: "644"
+          # always check download if no compression; only download compressed if no decompressed
+          when: vm_config.image.compression is not defined or not decompressed_image.stat.exists
+
+        - name: decompress image
+          community.general.decompress:
+            src: "{{ image_dest }}{{ image_suffix }}"
+            dest: "{{ image_dest }}"
+            format: "{{ vm_config.image.compression }}"
+            remove: true
+          when: vm_config.image.compression is defined and not decompressed_image.stat.exists
+
+    - name: create vm
+      community.proxmox.proxmox_kvm:
+        name: "{{ vm_config.name }}"
+        node: "{{ vm_config.node }}"
+        vmid: "{{ vm_config.id }}"
+        bios: "{{ vm_config.bios }}"
+        onboot: true
+        cpu: host
+        cores: "{{ vm_config.cores }}"
+        memory: "{{ vm_config.memory_mb }}"
+        scsihw: virtio-scsi-single
+        boot: "{{ vm_config.boot }}"
+        agent: "{{ vm_config.agent }}"
+        net: "{{ vm_config.net }}"
+        efidisk0: "{{ vm_config.efidisk0 | default(omit) }}"
+        ide: "{{ vm_config.ide | default(omit) }}"
+        serial: "{{ vm_config.serial | default(omit) }}"
+
+        # cloud-init settings
+        citype: "{{ vm_config.ci.citype | default(omit) }}"
+        ciuser: "{{ vm_config.ci.ciuser | default(omit) }}"
+        cipassword: "{{ vm_config.ci.cipassword | default(omit) }}"
+        sshkeys: "{{ vm_config.ci.sshkeys | default(omit) }}"
+        nameservers: "{{ vm_config.ci.nameservers | default(omit) }}"
+        ipconfig: "{{ vm_config.ci.ipconfig | default(omit) }}"
+      delegate_to: localhost
+
+    - name: create boot disk
+      community.proxmox.proxmox_disk:
+        vmid: "{{ vm_config.id }}"
+        disk: scsi0
+        storage: local-lvm
+        import_from: "{{ ('local:import/' ~ vm_config.image.file) if vm_config.disk == 'import' else omit }}"
+        size: "{{ vm_config.storage_gb if vm_config.disk == 'empty' else omit }}"
+      delegate_to: localhost
+      register: boot_disk
+      when: vm_config.disk is defined
+
+    - name: grow imported boot disk
+      community.proxmox.proxmox_disk:
+        vmid: "{{ vm_config.id }}"
+        disk: scsi0
+        state: resized
+        size: "{{ vm_config.storage_gb }}G"
+      delegate_to: localhost
+      when: vm_config.disk | default('') == "import" and boot_disk is changed
+
+    - name: start vm
+      community.proxmox.proxmox_kvm:
+        vmid: "{{ vm_config.id }}"
+        node: "{{ vm_config.node }}"
+        state: started
+      delegate_to: localhost
+
+    - name: wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ vm_config.wait.timeout }}"
+      when: vm_config.wait.method | default('') == "connection"
+
+    - name: wait for ssh port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: "{{ vm_config.wait.timeout }}"
+      delegate_to: localhost
+      when: vm_config.wait.method | default('') == "port"

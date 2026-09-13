@@ -16,7 +16,7 @@
         ansible_host: "{{ wan_ip }}"
 
 - name: configure internal nodes for bootstrapping
-  hosts: generic_deb_vms:storage
+  hosts: internal:!gateway_node
   gather_facts: false
   tasks:
     - ansible.builtin.set_fact:
@@ -39,6 +39,12 @@
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 02_proxmox_gateway_vm.yml
+
+- name: create gateway vm
+  hosts: gateway_vm
+  gather_facts: false
+  roles:
+    - proxmox_vm
 
 # - name: truenas bootstrap
 #   hosts: storage
@@ -105,11 +111,8 @@
 - name: provision debian cloud vms
   hosts: generic_deb_vms
   gather_facts: false
-  tasks:
-    - ansible.builtin.import_role:
-        # name: provision_vms
-        name: bootstrap
-        tasks_from: 10_provision_debian_vms.yml
+  roles:
+    - proxmox_vm
 
 - name: setup netbird management and client
   hosts: netbird_vm

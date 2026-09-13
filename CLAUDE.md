@@ -1,3 +1,5 @@
+- This code is still in development, which means the deployment you're working on is the only deployment and breaking changes are totally acceptable and preferred if they keep the codebase cleaner.
+
 - You are not allowed to mutate the state of this repository or the systems you access without my prior consent. Focus on help me make the changes myself.
 - Before bootstrapping, you can access pavo (proxmox gateway) with `ssh pavo`
 - Before bootstrapping, you can access carina (truenas storage) with `ssh -J pavo truenas_admin@10.127.0.2`
