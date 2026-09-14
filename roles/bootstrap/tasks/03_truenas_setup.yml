@@ -1,15 +1,24 @@
 - name: get network configuration config
-  ansible.builtin.command: midclt call network.configuration.config
+  ansible.builtin.command:
+    argv: [midclt, call, network.configuration.config]
   register: network_config
   changed_when: false
 
 - name: set hostname
-  ansible.builtin.command: midclt call network.configuration.update '{"hostname":"{{ inventory_hostname }}"}'
+  vars:
+    payload:
+      hostname: "{{ inventory_hostname }}"
+  ansible.builtin.command:
+    argv: [midclt, call, network.configuration.update, "{{ payload | to_json }}"]
   when: (network_config.stdout | from_json).hostname != inventory_hostname
   changed_when: true
 
 - name: set ipv4gateway
-  ansible.builtin.command: midclt call network.configuration.update '{"ipv4gateway":"{{ hostvars[groups.gateway_vm | first].ansible_host }}"}'
+  vars:
+    payload:
+      ipv4gateway: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+  ansible.builtin.command:
+    argv: [midclt, call, network.configuration.update, "{{ payload | to_json }}"]
   when: (network_config.stdout | from_json).ipv4gateway != hostvars[groups.gateway_vm | first].ansible_host
   changed_when: true
 
@@ -23,7 +32,8 @@
   changed_when: true
 
 - name: query existing disks
-  ansible.builtin.command: midclt call disk.query
+  ansible.builtin.command:
+    argv: [midclt, call, disk.query]
   register: disk_query
   changed_when: false
 
@@ -32,7 +42,11 @@
     disk_serial_map: "{{ disk_query.stdout | from_json | items2dict(key_name='serial', value_name='devname') }}"
 
 - name: query whether pool exists
-  ansible.builtin.command: midclt call pool.query '[["name", "=", "{{ storage_pool.name }}"]]'
+  vars:
+    payload:
+      - [name, "=", "{{ storage_pool.name }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.query, "{{ payload | to_json }}"]
   register: pool_query
   changed_when: false
 
@@ -46,13 +60,14 @@
     pool_exists: "{{ (pool_query.stdout | from_json | length) > 0 }}"
 
 - name: create pool
-  ansible.builtin.command: midclt call --job --job-print description pool.create '{{ pool_create_payload | to_json }}'
   vars:
-    pool_create_payload:
+    payload:
       name: "{{ storage_pool.name }}"
       topology:
         data:
           - type: "{{ storage_pool.type }}"
             disks: "{{ storage_pool.disks | map('extract', disk_serial_map) | list }}"
+  ansible.builtin.command:
+    argv: [midclt, call, --job, --job-print, description, pool.create, "{{ payload | to_json }}"]
   when: not pool_exists
   changed_when: true
