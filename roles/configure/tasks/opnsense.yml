@@ -1,0 +1,89 @@
+- module_defaults:
+    group/oxlorg.opnsense.all: "{{ opnsense_module_defaults }}"
+  delegate_to: "{{ opnsense_api_delegate }}"
+  block:
+    - name: render port aliases
+      ansible.builtin.set_fact:
+        port_aliases: "{{ lookup('ansible.builtin.template', 'port_aliases.yml.j2') | from_yaml | default([], true) }}"
+
+    - name: render service rules
+      ansible.builtin.set_fact:
+        service_rules: "{{ lookup('ansible.builtin.template', 'service_rules.yml.j2') | from_yaml | default([], true) }}"
+
+    - name: lockout guard # ai assisted here lol
+      vars:
+        reserved_ports: "{{ [hostvars[groups.public_relay | first].ansible_port, hostvars[groups.public_relay | first].tunnel_port] }}"
+        claimed_port_ranges: "{{ services | map(attribute='ports') | map('string') | map('replace', ' ', '') | map('split', ',') | flatten | map('split', '-') | list }}"
+      ansible.builtin.assert:
+        that:
+          - item.0 | int < (item.1 | first | int) or item.0 | int > (item.1 | last | int)
+        fail_msg: "port {{ item.0 }}  '{{ item.1 | join('-') }}'"
+        quiet: true
+      loop: "{{ reserved_ports | product(claimed_port_ranges) | list }}"
+      loop_control:
+        label: "{{ item.0 }} vs {{ item.1 | join('-') }}"
+
+    - name: ensure port remapping is valid
+      ansible.builtin.assert:
+        that:
+          - "',' not in (item.ports | string)"
+          - "'-' not in (item.ports | string)"
+        fail_msg: "service {{ item.name }} contains a destination port and multiple source ports"
+      loop: "{{ services | selectattr('dest_port', 'defined') | list }}"
+
+    - name: create port aliases
+      oxlorg.opnsense.alias_multi:
+        aliases: "{{ port_aliases }}"
+      notify: apply firewall aliases
+        
+    - name: manage tunnel firewall rules
+      oxlorg.opnsense.rule_multi:
+        match_fields:
+          - description
+        rules: "{{ static_rules + service_rules }}"
+        multi_control:
+          override:
+            action: pass
+            direction: in
+          purge_unconfigured: true
+      notify: apply firewall rules
+
+    - name: get dnat rules
+      oxlorg.opnsense.list:
+        target: nat_destination
+      register: dnat_rules
+
+    # has to happen before alias deletion
+    - name: delete unused hairpin rules
+      vars:
+        used_rules: "{{ ['hairpin '] | product(services | map(attribute='name'), [' traffic']) | map('join') | list }}"
+        unused_rules: "{{ dnat_rules.data | map(attribute='description') | select('match', 'hairpin ') | difference(used_rules) }}"
+      oxlorg.opnsense.nat_destination:
+        description: "{{ item }}"
+        match_fields:
+          - description
+        state: absent
+      loop: "{{ unused_rules }}"
+      notify: apply firewall rules
+
+    - name: delete unused aliases
+      oxlorg.opnsense.alias_multi:
+        aliases: "{{ port_aliases }}"
+        multi_control:
+          purge_unconfigured: true
+      notify: apply firewall aliases
+
+    - name: hairpin traffic bound for public relay
+      oxlorg.opnsense.nat_destination:
+        description: hairpin {{ item.name }} traffic
+        interface: [lan]
+        protocol: "{{ item.protocol }}"
+        source_net: lan
+        destination_net: "{{ tunnel_peer.public_ip }}"
+        destination_port: "{{ (item.ports | string) if item.dest_port is defined else 'svc_' ~ item.name ~ '_ports' }}" # the second being the port alias group
+        target: "{{ item.dest }}"
+        local_port: "{{ item.dest_port | default(omit) }}"
+        match_fields:
+          - description
+      loop: "{{ services }}"
+      notify: apply firewall rules

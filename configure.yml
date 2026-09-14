@@ -1,0 +1,21 @@
+- name: configure opnsense
+  hosts: gateway_vm
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_role:
+        name: configure
+        tasks_from: opnsense.yml
+
+- name: configure public relay iptables
+  hosts: public_relay
+  tasks:
+    - ansible.builtin.import_role:
+        name: configure
+        tasks_from: relay-iptables.yml
+
+- name: configure caddy config
+  hosts: rev_proxy_vm
+  tasks:
+    - ansible.builtin.import_role:
+        name: configure
+        tasks_from: caddy-config.yml

@@ -9,8 +9,8 @@ possible future buildout
 - k3s: shlink
 - k3s: gitlab
 
-bugs
-- destination dat must be deleted before ip aliases can be deleted
+bugs:
+-
 
 move reusable code (opnsense firewalls, etc) to reusable role for an intended runtime configure playbook
 
@@ -25,13 +25,11 @@ rename gateway node to gateway host (unsure if this has to be on rebuild probabl
 
 scrub public ip and make this repo public
 
-ensure that all traffic goes through gateway
-
 clean up numbering and associated stuff in bootstrap tasks
 
 test to make sure opnsense is still secure with ssh on
 
-allow anyone to have netbird access for adblocking?
+allow anyone to have netbird access for adblocking? (edit: maybe disable adblocking?)
 
 right now I'm doing the following (see below); wondering if metallb would be better. seems like this could be binding to all internal ips. maybe that's ok?
 k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"

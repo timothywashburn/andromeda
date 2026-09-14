@@ -12,6 +12,10 @@ pihole_version: "2026.07.2"
 
 timezone: America/Los_Angeles
 
+homelab_networks:
+  - name: main
+    cidr: 10.127.0.0/24
+
 public_domain: ***REMOVED***
 dns_upstreams:
   - 1.1.1.1
@@ -39,40 +43,3 @@ rocky_cloud_image:
   base_url: https://dl.rockylinux.org/pub/rocky/9/images/x86_64
   file: Rocky-9-GenericCloud-Base-9.8-20260525.0.x86_64.qcow2
   checksum: "sha256:{{ rocky_cloud_image.base_url }}/{{ rocky_cloud_image.file }}.CHECKSUM"
-
-static_rules:
-  - name: allow v4 egress
-    interface: [lan]
-    source_net: lan
-    ip_protocol: inet
-
-homelab_networks:
-  - name: main
-    cidr: 10.127.0.0/24
-
-# names must be alphanumberic + underscores
-services:
-  # - name: https_test2
-  #   protocol: tcp
-  #   ports: "1,70,8000-8010"
-  #   dest: 10.127.0.50
-  # - name: asdf
-  #   protocol: tcp
-  #   ports: "80"
-  #   dest: 10.127.0.50
-  #   dest_port: 8080
-  - name: reverse_proxy
-    protocol: tcp
-    ports: "80,443"
-    dest: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
-  - name: bmc
-    protocol: tcp
-    ports: "25565,31400-31499"
-    dest: "10.127.0.249"
-
-proxy_routes:
-  - host: "{{ netbird_domain }}"
-    backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_dashboard_port }}"
-    grpc_backend: "{{ hostvars[groups.netbird_vm | first].ansible_host }}:{{ hostvars[groups.netbird_vm | first].netbird_server_port }}"
-  - host: "ai.***REMOVED***"
-    backend: "10.127.0.100:8080"

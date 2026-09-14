@@ -16,10 +16,7 @@
     state: present
     update_cache: true
 
-- name: create iptable rules
-  ansible.builtin.template:
-    src: rules.v4.j2
-    dest: /etc/iptables/rules.v4
-    mode: "600"
-    validate: iptables-restore --test %s
-  notify: reload iptables
+- name: setup iptable rules
+  ansible.builtin.import_role:
+    name: configure
+    tasks_from: relay-iptables.yml

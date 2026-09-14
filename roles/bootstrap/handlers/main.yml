@@ -13,10 +13,6 @@
   ansible.builtin.apt:
     update_cache: true
 
-- name: reload iptables
-  ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
-  changed_when: true
-
 - name: restart pveproxy
   ansible.builtin.systemd_service:
     name: pveproxy
@@ -38,28 +34,8 @@
       oxlorg.opnsense.reload:
         target: wireguard
 
-    - name: apply firewall aliases
-      oxlorg.opnsense.raw:
-        module: firewall
-        controller: alias
-        command: reconfigure
-        action: post
-
-    - name: apply firewall rules
-      oxlorg.opnsense.raw:
-        module: firewall
-        controller: filter
-        command: apply
-        action: post
-
 # netbird
 - name: restart netbird # noqa: syntax-check[unknown-module]
   community.docker.docker_compose_v2:
     project_src: /etc/netbird
     state: restarted
-
-# caddy
-- name: reload caddy
-  ansible.builtin.systemd:
-    name: caddy
-    state: reloaded

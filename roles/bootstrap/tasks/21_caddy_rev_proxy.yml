@@ -21,13 +21,10 @@
     enabled: true
     state: started
 
-- name: write caddyfile
-  ansible.builtin.template:
-    src: Caddyfile.j2
-    dest: /etc/caddy/Caddyfile
-    mode: "644"
-    validate: caddy validate --adapter caddyfile --config %s
-  notify: reload caddy
+- name: setup caddy config
+  ansible.builtin.import_role:
+    name: configure
+    tasks_from: caddy-config.yml
 
 - name: enable caddy
   ansible.builtin.systemd:
