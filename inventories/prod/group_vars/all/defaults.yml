@@ -17,6 +17,9 @@ proxmox_module_defaults:
 
 opnsense_api_delegate: "{{ groups.gateway_node | first }}"
 
+dns_server: "{{ hostvars[groups.dns_vm | first].ansible_host }}"
+k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"
+
 markers_dir: "{{ inventory_dir }}/markers"
 hardening_lockout_guard_marker: "{{ markers_dir }}/hardening-lockout-guard"
 

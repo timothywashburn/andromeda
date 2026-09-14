@@ -8,6 +8,14 @@ kea_version: "3.0.4"
 stork_version: "2.4.1"
 warewulf_version: "4.7.0"
 k3s_version: "v1.36.4+k3s1" # this affects both the control plane vm and warewulf agent nodes
+pihole_version: "2026.07.2"
+
+timezone: America/Los_Angeles
+
+public_domain: ***REMOVED***
+dns_upstreams:
+  - 1.1.1.1
+  - 1.0.0.1
 
 iscsi_initiator_iqn_base: ***REMOVED***
 iscsi_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas

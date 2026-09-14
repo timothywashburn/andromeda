@@ -59,6 +59,13 @@ then run the ansible bootstrap playbook
 - opesense setup part 2 (through opnsense ui)
   - `ssh -L 8443:10.127.0.254:443 pavo` to port forward
   - Select **System** > **Access** > **Users** > root user: **Create and download api keys for this user**
+  - Navigate **System** > **Settings** > **General** >> **Networking**
+    - **DNS servers:** `10.127.0.248`
+    - **DNS server options** > **Allow DNS server list to be overridden by DHCP/PPP on WAN:** `unchecked`
+    - **Save**
+  - Navigate **Firewall** > **Settings** > **Advanced**
+    - **Automatic outbound NAT for Reflection:** `checked`
+    - **Save**
   
 - opnsense setup part 3 (through opnsense ui)
   - Select **Interfaces** > **+** (Add Interface)

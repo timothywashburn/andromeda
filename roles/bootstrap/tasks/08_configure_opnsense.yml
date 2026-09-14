@@ -61,17 +61,21 @@
           purge_unconfigured: true
       notify: apply firewall aliases
 
-    - name: create internal dns override
-      oxlorg.opnsense.unbound_host:
-        hostname: "{{ item.host.split('.') | first }}"
-        domain: "{{ item.host.split('.')[1:] | join('.') }}"
-        record_type: A
-        value: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
-        description: "{{ item.host }} local dns record"
+    - name: hairpin traffic bound for public relay
+      oxlorg.opnsense.nat_destination:
+        description: hairpin {{ item.name }} traffic
+        interface: [lan]
+        protocol: "{{ item.protocol }}"
+        source_net: lan
+        destination_net: "{{ tunnel_peer.public_ip }}"
+        destination_port: "{{ (item.ports | string) if item.dest_port is defined else 'svc_' ~ item.name ~ '_ports' }}" # the second being the port alias group
+        target: "{{ item.dest }}"
+        local_port: "{{ item.dest_port | default(omit) }}"
         match_fields:
-          - hostname
-          - domain
-          - record_type
-        reload: false
-      loop: "{{ proxy_routes }}"
-      notify: apply unbound
+          - description
+      loop: "{{ services }}"
+      notify: apply firewall rules
+      
+    - name: disable unbound
+      oxlorg.opnsense.unbound_general:
+        enabled: false

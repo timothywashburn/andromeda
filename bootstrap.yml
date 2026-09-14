@@ -110,6 +110,16 @@
       vars:
         gateway: lan
 
+- name: setup dns vm
+  hosts: dns_vm
+  gather_facts: false
+  roles:
+    - proxmox_vm
+  tasks:
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: 19_dns_vm.yml
+
 - name: provision debian cloud vms
   hosts: generic_deb_vms
   gather_facts: false

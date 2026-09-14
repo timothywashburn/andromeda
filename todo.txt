@@ -1,5 +1,20 @@
+next feature buildout
+- truenas snapshots + r2 backup
+- k3s: grafana + prometheus + loki + alloy
+- k3s: authentik
+- k3s: argocd?
+- pterodactyl vm
+
+possible future buildout
+- k3s: shlink
+- k3s: gitlab
+
 put qemu guest agent on all vms
-add dns server like pihole with 1.1.1.1
+
+extra ambitious
+- get source ips working by removing masquerade tunnel system
+
+should hairpinning be for all internal services not just 80/443 to .253?
 
 rename gateway node to gateway host (unsure if this has to be on rebuild probably not?)
 
@@ -8,6 +23,13 @@ scrub public ip and make this repo public
 ensure that all traffic goes through gateway
 
 clean up numbering and associated stuff in bootstrap tasks
+
+test to make sure opnsense is still secure with ssh on
+
+allow anyone to have netbird access for adblocking?
+
+right now I'm doing the following (see below); wondering if metallb would be better. seems like this could be binding to all internal ips. maybe that's ok?
+k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"
 
 look at on rebuild
 - check todos (I think there's at least one there)

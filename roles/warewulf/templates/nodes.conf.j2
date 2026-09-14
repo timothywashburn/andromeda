@@ -45,7 +45,7 @@ nodeprofiles:
         netmask: {{ warewulf_network | ansible.utils.ipaddr('netmask') }}
         gateway: {{ hostvars[groups.gateway_vm | first].ansible_host }}
         tags:
-          DNS1: {{ hostvars[groups.gateway_vm | first].ansible_host }}
+          DNS1: {{ dns_server }}
 nodes:
 {% for node in groups.warewulf_nodes %}
   {{ node }}:

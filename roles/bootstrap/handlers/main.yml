@@ -52,13 +52,6 @@
         command: apply
         action: post
 
-    - name: apply unbound
-      oxlorg.opnsense.raw:
-        module: unbound
-        controller: service
-        command: reconfigure
-        action: post
-
 # netbird
 - name: restart netbird # noqa: syntax-check[unknown-module]
   community.docker.docker_compose_v2:

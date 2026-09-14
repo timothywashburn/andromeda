@@ -7,7 +7,7 @@ kea_subnet: "{{ homelab_networks[0].cidr }}"
 kea_pool_start: 10.127.0.150
 kea_pool_end: 10.127.0.199
 kea_gateway: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
-kea_dns: "{{ kea_gateway }}"
+kea_dns: "{{ dns_server }}"
 
 kea_warewulf_host: "{{ hostvars[groups.warewulf_vm | first].ansible_host }}"
 kea_boot_file: warewulf/ipxe-snponly-x86_64.efi

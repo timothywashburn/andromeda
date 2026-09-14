@@ -3,24 +3,13 @@
       api_url: "https://{{ netbird_domain }}"
       api_token: "{{ netbird_pat }}"
   block:
-    - name: add docker repository
-      ansible.builtin.deb822_repository:
-        name: docker
-        types: deb
-        uris: https://download.docker.com/linux/debian
-        suites: "{{ ansible_distribution_release }}"
-        components: stable
-        signed_by: https://download.docker.com/linux/debian/gpg
+    - name: install docker
+      ansible.builtin.import_tasks: install_docker.yml
 
     - name: install packages
       ansible.builtin.apt:
         name:
           - qemu-guest-agent
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
         state: present
         update_cache: true
         
@@ -62,6 +51,8 @@
       community.docker.docker_compose_v2:
         project_src: /etc/netbird
         state: present
+        wait: true
+        wait_timeout: 30
 
     - name: flush handlers
       ansible.builtin.meta: flush_handlers
@@ -179,10 +170,13 @@
         resource: groups
       delegate_to: localhost
       register: netbird_groups
+
+    - name: extract netbird all group id
+      ansible.builtin.set_fact:
+        netbird_all_group_id: "{{ (netbird_groups.data | selectattr('name', 'eq', 'All') | first).id }}"
       
     - name: add homelab machines to netbird network
       vars:
-        netbird_all_group_id: "{{ (netbird_groups.data | selectattr('name', 'eq', 'All') | first).id }}"
         netbird_router_peer_id: "{{ (netbird_peers.data | selectattr('hostname', 'eq', inventory_hostname | replace('_', '-')) | first).id }}"
       community.ansible_netbird.netbird_network:
         name: homelab
@@ -191,4 +185,39 @@
           - peer: "{{ netbird_router_peer_id }}"
             masquerade: true
         resources: "{{ lookup('ansible.builtin.template', 'netbird-resources.yml.j2') | from_yaml | default([], true) }}"
+      delegate_to: localhost
+
+    - name: use dns server for homelab dns lookups on connected peers
+      community.ansible_netbird.netbird_dns:
+        name: homelab-dns
+        description: use dns server for homelab dns lookups on connected peers
+        nameservers:
+          - ip: "{{ dns_server }}"
+            ns_type: udp
+            port: 53
+        groups:
+          - "{{ netbird_all_group_id }}"
+        domains:
+          - "{{ public_domain }}"
+        search_domains_enabled: false
+      delegate_to: localhost
+
+    - name: create adblocking group
+      community.ansible_netbird.netbird_group:
+        name: adblock
+      register: netbird_adblock_group
+      delegate_to: localhost
+    
+    - name: use pihole dns for adblock group
+      community.ansible_netbird.netbird_dns:
+        name: adblock-dns
+        description: uses pihole dns for adblocking (for external devices)
+        nameservers:
+          - ip: "{{ dns_server }}"
+            ns_type: udp
+            port: 53
+        groups:
+          - "{{ netbird_adblock_group.group.id }}"
+        primary: true
+        search_domains_enabled: false
       delegate_to: localhost

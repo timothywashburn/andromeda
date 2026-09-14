@@ -1,0 +1,43 @@
+- ansible.builtin.setup:
+
+- name: install docker
+  ansible.builtin.import_tasks: install_docker.yml
+
+- name: install packages
+  ansible.builtin.apt:
+    name: qemu-guest-agent
+    state: present
+    update_cache: true
+
+- name: enable qemu guest agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: create pihole directory
+  ansible.builtin.file:
+    path: /etc/pihole
+    state: directory
+    mode: "755"
+
+- name: write pihole docker compose file
+  ansible.builtin.template:
+    src: pihole-compose.yml.j2
+    dest: /etc/pihole/docker-compose.yml
+    mode: "600"
+  diff: false
+
+- name: start pihole
+  community.docker.docker_compose_v2:
+    project_src: /etc/pihole
+    state: present
+    wait: true
+    wait_timeout: 60
+
+- name: set dns for gateway host
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    mode: "644"
+  delegate_to: "{{ groups.gateway_node | first }}"

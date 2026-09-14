@@ -22,7 +22,7 @@ vm_templates:
       ciuser: "{{ ansible_user }}"
       cipassword: "{{ temp_password }}" # TODO: temp
       sshkeys: "{{ public_ssh_keys | join('\n') }}"
-      nameservers: "{{ hostvars[groups.gateway_vm | first].ansible_host }}"
+      nameservers: "{{ dns_server }}"
       ipconfig:
         ipconfig0: "ip={{ ansible_host }}/24,gw={{ hostvars[groups.gateway_vm | first].ansible_host }}"
     wait:
