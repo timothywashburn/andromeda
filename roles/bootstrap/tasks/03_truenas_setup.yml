@@ -13,6 +13,15 @@
   when: (network_config.stdout | from_json).ipv4gateway != hostvars[groups.gateway_vm | first].ansible_host
   changed_when: true
 
+- name: set dns server
+  vars:
+    payload:
+      nameserver1: "{{ dns_server }}"
+  ansible.builtin.command:
+    argv: [midclt, call, network.configuration.update, "{{ payload | to_json }}"]
+  when: (network_config.stdout | from_json).nameserver1 != dns_server
+  changed_when: true
+
 - name: query existing disks
   ansible.builtin.command: midclt call disk.query
   register: disk_query

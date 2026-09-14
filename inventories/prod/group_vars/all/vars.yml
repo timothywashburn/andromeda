@@ -41,7 +41,7 @@ rocky_cloud_image:
   checksum: "sha256:{{ rocky_cloud_image.base_url }}/{{ rocky_cloud_image.file }}.CHECKSUM"
 
 static_rules:
-  - name: allow v4 lan traffic
+  - name: allow v4 egress
     interface: [lan]
     source_net: lan
     ip_protocol: inet
@@ -65,6 +65,10 @@ services:
     protocol: tcp
     ports: "80,443"
     dest: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
+  - name: bmc
+    protocol: tcp
+    ports: "25565,31400-31499"
+    dest: "10.127.0.249"
 
 proxy_routes:
   - host: "{{ netbird_domain }}"

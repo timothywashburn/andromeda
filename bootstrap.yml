@@ -48,12 +48,12 @@
   roles:
     - proxmox_vm
 
-# - name: truenas bootstrap
-#   hosts: storage
-#   tasks:
-#     - ansible.builtin.import_role:
-#         name: bootstrap
-#         tasks_from: 03_truenas_setup.yml
+- name: truenas bootstrap
+  hosts: storage
+  tasks:
+    - ansible.builtin.import_role:
+        name: bootstrap
+        tasks_from: 03_truenas_setup.yml
 
 - name: change relay ssh port
   hosts: public_relay

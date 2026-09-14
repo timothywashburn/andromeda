@@ -38,3 +38,4 @@ warewulf_image_packages:
   - jq
   - bash-completion
   - net-tools
+  - systemd-timesyncd # ntp time sync

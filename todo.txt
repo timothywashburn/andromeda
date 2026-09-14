@@ -9,6 +9,13 @@ possible future buildout
 - k3s: shlink
 - k3s: gitlab
 
+make midclt bootstrap use the same format as the other midclt payload argv calls
+
+bugs
+- destination dat must be deleted before ip aliases can be deleted
+
+move reusable code (opnsense firewalls, etc) to reusable role for an intended runtime configure playbook
+
 put qemu guest agent on all vms
 
 extra ambitious
