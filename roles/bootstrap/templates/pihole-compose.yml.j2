@@ -17,7 +17,7 @@ services:
       FTLCONF_dns_upstreams: "{{ dns_upstreams | join(';') }}"
       # switch out the public vps ip for rev proxy when requesting local domains
       FTLCONF_misc_dnsmasq_lines: "alias={{ hostvars[groups.public_relay | first].public_ip }},{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
-      # ensure external netbird peers still resolve netbird to the public relay (TODO: TEST IF NECESSARY)
+      # ensure external netbird peers still resolve netbird to the public relay
       FTLCONF_dns_hosts: "{{ hostvars[groups.public_relay | first].public_ip }} {{ netbird_domain }}"
       FTLCONF_ntp_ipv4_active: "false"
       FTLCONF_ntp_ipv6_active: "false"
