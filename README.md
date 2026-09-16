@@ -1,5 +1,3 @@
 # Andromeda
 
-This repository will contain the full instructions for bootstrapping Andromeda, my homelab kubernetes infrastructure.
-
-setup the server using setup.md
+This repo is to serve as a point in documentation of the full setup instructions (largely ansible with a few required manual steps) for setting up my homelab infrastructure, Andromeda. Despite this technically being a full set of instructions for doing so, I do not recommend anyone actually attempt to use directly on their own hardware. After a lot of thought, I've realized the value of publishing code that others can use to deploy this type of infrastructure would require substantial effort and yield little in return. I think with the proper accompanying set of articles (which I may or may never write), this repo could end up being helpful to those homelabbing who come after me.
