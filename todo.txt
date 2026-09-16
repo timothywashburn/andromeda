@@ -12,6 +12,10 @@ possible future buildout
 bugs:
 -
 
+version pin kea stork bind
+
+set up security updates
+
 move reusable code (opnsense firewalls, etc) to reusable role for an intended runtime configure playbook
 
 put qemu guest agent on all vms
@@ -28,8 +32,6 @@ scrub public ip and make this repo public
 clean up numbering and associated stuff in bootstrap tasks
 
 test to make sure opnsense is still secure with ssh on
-
-allow anyone to have netbird access for adblocking? (edit: maybe disable adblocking?)
 
 right now I'm doing the following (see below); wondering if metallb would be better. seems like this could be binding to all internal ips. maybe that's ok?
 k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"

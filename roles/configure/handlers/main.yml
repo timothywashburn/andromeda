@@ -25,6 +25,6 @@
 
 # caddy-config
 - name: reload caddy
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: caddy
     state: reloaded

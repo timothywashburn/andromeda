@@ -20,9 +20,15 @@
 
 # wireguard
 - name: restart wireguard
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: wg-quick@wg0
     state: restarted
+
+# bind
+- name: reload bind
+  ansible.builtin.systemd_service:
+    name: named
+    state: reloaded
 
 # opnsense
 - name: opnsense api handlers

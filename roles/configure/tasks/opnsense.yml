@@ -54,10 +54,10 @@
       register: dnat_rules
 
     # has to happen before alias deletion
-    - name: delete unused hairpin rules
+    - name: delete unused loopback rules
       vars:
-        used_rules: "{{ ['hairpin '] | product(services | map(attribute='name'), [' traffic']) | map('join') | list }}"
-        unused_rules: "{{ dnat_rules.data | map(attribute='description') | select('match', 'hairpin ') | difference(used_rules) }}"
+        used_rules: "{{ ['loopback '] | product(services | map(attribute='name'), [' traffic']) | map('join') | list }}"
+        unused_rules: "{{ dnat_rules.data | map(attribute='description') | select('match', 'loopback ') | difference(used_rules) }}"
       oxlorg.opnsense.nat_destination:
         description: "{{ item }}"
         match_fields:
@@ -73,9 +73,9 @@
           purge_unconfigured: true
       notify: apply firewall aliases
 
-    - name: hairpin traffic bound for public relay
+    - name: loopback rule on traffic bound for public relay
       oxlorg.opnsense.nat_destination:
-        description: hairpin {{ item.name }} traffic
+        description: loopback {{ item.name }} traffic
         interface: [lan]
         protocol: "{{ item.protocol }}"
         source_net: lan

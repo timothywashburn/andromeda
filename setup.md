@@ -60,7 +60,7 @@ then run the ansible bootstrap playbook
   - `ssh -L 8443:10.127.0.254:443 pavo` to port forward
   - Select **System** > **Access** > **Users** > root user: **Create and download api keys for this user**
   - Navigate **System** > **Settings** > **General** >> **Networking**
-    - **DNS servers:** `10.127.0.248`
+    - **DNS servers:** `10.127.0.251`
     - **DNS server options** > **Allow DNS server list to be overridden by DHCP/PPP on WAN:** `unchecked`
     - **Save**
   - Navigate **Firewall** > **Settings** > **Advanced**

@@ -1,0 +1,13 @@
+; {{ ansible_managed }}
+
+; "The max-policy-ttl clause changes the maximum number of seconds from its default of 5"
+; https://bind9.readthedocs.io/en/latest/reference.html#response-policy-zone-rpz-rewriting
+$TTL 5
+@ SOA . . 0 0 0 0 0
+@ NS .
+
+; rewrite responses containing <relay_ip>/32 to rev proxy ip
+32.{{ hostvars[groups.public_relay | first].public_ip.split('.') | reverse | join('.') }}.rpz-ip A {{ hostvars[groups.rev_proxy_vm | first].ansible_host }}
+
+; except for netbird (external netbird devices need to resolve public netbird ip to establish connection)
+{{ netbird_domain }} CNAME rpz-passthru.

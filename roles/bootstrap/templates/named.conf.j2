@@ -1,0 +1,29 @@
+// {{ ansible_managed }}
+// a simple split dns setup: https://bind9.readthedocs.io/en/stable/chapter6.html#split-dns
+
+options {
+    directory "/var/cache/bind";
+    forwarders {
+        {{ dns_upstreams | join('; ') }};
+    };
+    response-policy {
+        zone "loopback";
+    };
+    // consider zone-statistics full; when running prom exporter
+};
+
+zone "loopback" {
+    type primary; // defines its own state
+    file "/etc/bind/loopback";
+    // lets stork ui access the zone
+    allow-transfer {
+        127.0.0.1;
+    };
+};
+
+// lets stork ui pull statistics
+statistics-channels {
+    inet 127.0.0.1 allow {
+        127.0.0.1;
+    };
+};

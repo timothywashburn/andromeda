@@ -40,10 +40,12 @@
       - python3-psycopg2
     update_cache: true
 
-- name: ensure stork agent can read kea config for credentials
+- name: ensure stork agent can read kea and bind config for credentials
   ansible.builtin.user:
     name: stork-agent
-    groups: _kea
+    groups:
+      - _kea
+      - bind
     append: true
   notify: restart stork agent
 

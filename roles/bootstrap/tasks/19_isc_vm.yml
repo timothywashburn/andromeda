@@ -1,0 +1,34 @@
+- name: install packages
+  ansible.builtin.apt:
+    name:
+      - qemu-guest-agent
+      - bind9
+    update_cache: true
+
+- name: start qemu guest agent
+  ansible.builtin.systemd_service:
+    name: qemu-guest-agent
+    state: started
+
+- name: create loopback zone
+  ansible.builtin.template:
+    src: loopback.j2
+    dest: /etc/bind/loopback
+    mode: "644"
+    validate: named-checkzone loopback %s
+  notify: reload bind
+
+- name: write bind config
+  ansible.builtin.template:
+    src: named.conf.j2
+    dest: /etc/bind/named.conf
+    mode: "644"
+    validate: named-checkconf %s
+  notify: reload bind
+
+- name: set dns for gateway host
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    mode: "644"
+  delegate_to: "{{ groups.gateway_node | first }}"

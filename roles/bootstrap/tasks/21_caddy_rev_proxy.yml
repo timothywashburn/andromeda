@@ -16,7 +16,7 @@
     update_cache: true
 
 - name: enable qemu guest agent
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: qemu-guest-agent
     enabled: true
     state: started
@@ -27,7 +27,7 @@
     tasks_from: caddy-config.yml
 
 - name: enable caddy
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: caddy
     enabled: true
     state: started

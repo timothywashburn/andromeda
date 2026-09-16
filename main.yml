@@ -32,14 +32,14 @@
     - ansible.builtin.import_role:
         name: warewulf
 
-- name: set up kea
-  hosts: kea_vm
+- name: set up isc vm
+  hosts: isc_vm
   gather_facts: false
   roles:
     - proxmox_vm
   tasks:
     - ansible.builtin.import_role:
-        name: kea
+        name: isc
 
 - name: set up k3s agent vms
   hosts: warewulf_nodes

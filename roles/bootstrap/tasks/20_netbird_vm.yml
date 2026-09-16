@@ -14,7 +14,7 @@
         update_cache: true
         
     - name: enable qemu guest agent
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: qemu-guest-agent
         enabled: true
         state: started
@@ -199,25 +199,5 @@
           - "{{ netbird_all_group_id }}"
         domains:
           - "{{ public_domain }}"
-        search_domains_enabled: false
-      delegate_to: localhost
-
-    - name: create adblocking group
-      community.ansible_netbird.netbird_group:
-        name: adblock
-      register: netbird_adblock_group
-      delegate_to: localhost
-    
-    - name: use pihole dns for adblock group
-      community.ansible_netbird.netbird_dns:
-        name: adblock-dns
-        description: uses pihole dns for adblocking (for external devices)
-        nameservers:
-          - ip: "{{ dns_server }}"
-            ns_type: udp
-            port: 53
-        groups:
-          - "{{ netbird_adblock_group.group.id }}"
-        primary: true
         search_domains_enabled: false
       delegate_to: localhost
