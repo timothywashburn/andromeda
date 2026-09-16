@@ -143,7 +143,7 @@ silently change the runtime.
 2. `llm_domain` into `secrets.yml`.
 3. **Generalize the Unbound override** (`bootstrap.yml:557`) to `loop: "{{ proxy_routes }}"` —
    it is hardcoded to netbird and is the blocker for any second proxied host. Detail in §5.
-4. Public DNS A record → ***REMOVED*** (manual, outside the repo).
+4. Public DNS A record → public relay IP (manual, outside the repo).
 
 ---
 

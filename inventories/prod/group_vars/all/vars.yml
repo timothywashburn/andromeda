@@ -15,12 +15,10 @@ homelab_networks:
   - name: main
     cidr: 10.127.0.0/24
 
-public_domain: ***REMOVED***
 dns_upstreams:
   - 1.1.1.1
   - 1.0.0.1
 
-iscsi_initiator_iqn_base: ***REMOVED***
 iscsi_target_iqn_base: iqn.2005-10.org.freenas.ctl # truenas
 
 public_ssh_keys:

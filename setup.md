@@ -85,7 +85,3 @@ set up ansible ssh access to carina
 - `ssh-copy-id -o ProxyJump=root@192.168.4.75 truenas_admin@10.127.0.2`
 - get serial for drives in pool with `lsblk -S` or `midclt call disk.query | jq`
 - 
-
-my personal notes
-- pavo 2.5 installed nic (lan): `***REMOVED***`
-- pavo motherboard nic (wan): `***REMOVED***`
