@@ -1,6 +1,7 @@
 next feature buildout
 - truenas snapshots + r2 backup
 - k3s: grafana + prometheus + loki + alloy
+- k3s: homeassistant + shelly integration
 - k3s: authentik
 - k3s: argocd?
 - pterodactyl vm
@@ -10,7 +11,7 @@ possible future buildout
 - k3s: gitlab
 
 bugs:
--
+- warewulf nodes fail if truenas isn't up, possibly control plane too?
 
 version pin kea stork bind
 
