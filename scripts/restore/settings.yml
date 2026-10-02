@@ -1,0 +1,30 @@
+# Prints the settings restore_k3s_volumes.py and the test scripts need, resolved by Ansible,
+# so they always match what the backups were set up with. Connects to nothing: run only
+# with --tags restore-settings, which skips the role's tasks, and debug runs locally.
+#
+#   ansible-playbook -i inventories/prod --tags restore-settings scripts/restore/settings.yml
+- name: print restore settings
+  hosts: storage
+  gather_facts: false
+  roles:
+    - role: ../../roles/truenas # for its defaults
+  tasks:
+    - name: print restore settings
+      tags: restore-settings
+      vars:
+        control_plane: "{{ hostvars[groups.k3s_control_plane | first] }}"
+      ansible.builtin.debug:
+        msg:
+          carina:
+            address: "{{ ansible_host }}"
+            user: "{{ ansible_user }}"
+            sudo_password: "{{ ansible_become_password }}"
+          control_plane:
+            address: "{{ control_plane.ansible_host }}"
+            user: "{{ control_plane.ansible_user }}"
+          endpoint: "{{ s3_backup.endpoint }}"
+          bucket: "{{ s3_backup.bucket }}"
+          access_key_id: "{{ s3_backup.access_key_id }}"
+          secret_access_key: "{{ s3_backup.secret_access_key }}"
+          # s3-backup.py names each repo after its dataset's full name
+          volume_map_folder: "/{{ k3s_metadata.dataset }}"

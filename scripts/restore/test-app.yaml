@@ -1,0 +1,49 @@
+# Throwaway app for testing restore_k3s_volumes.py: one block disk, one NFS disk,
+# and a container that holds them. Stands in for an app deployed by GitOps.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restore-test
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-block
+  namespace: restore-test
+spec:
+  storageClassName: truenas-iscsi
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-nfs
+  namespace: restore-test
+spec:
+  storageClassName: truenas-nfs
+  accessModes: [ReadWriteMany]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: holder
+  namespace: restore-test
+spec:
+  containers:
+    - name: holder
+      image: busybox:1.37
+      command: [sleep, infinity]
+      volumeMounts:
+        - {name: block, mountPath: /block}
+        - {name: nfs, mountPath: /nfs}
+  volumes:
+    - name: block
+      persistentVolumeClaim: {claimName: data-block}
+    - name: nfs
+      persistentVolumeClaim: {claimName: data-nfs}
