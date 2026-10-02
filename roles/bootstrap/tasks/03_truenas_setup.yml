@@ -71,3 +71,23 @@
     argv: [midclt, call, --job, --job-print, description, pool.create, "{{ payload | to_json }}"]
   when: not pool_exists
   changed_when: true
+
+- name: get current auth settings
+  vars:
+    ansible_become: false
+  ansible.builtin.command:
+    argv: [midclt, call, auth.me]
+  register: auth_settings
+  changed_when: false
+
+- name: increase max user session length
+  vars:
+    ansible_become: false
+    preferences: "{{ (auth_settings.stdout | from_json).attributes.preferences | default({}) }}"
+    new_preferences:
+      lifetime: 86400
+    payload: "{{ preferences | combine(new_preferences) }}"
+  ansible.builtin.command:
+    argv: [midclt, call, auth.set_attribute, preferences, "{{ payload | to_json }}"]
+  when: preferences != payload
+  changed_when: true

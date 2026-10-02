@@ -1,5 +1,4 @@
 next feature buildout
-- truenas snapshots + r2 backup
 - k3s: grafana + prometheus + loki + alloy
 - k3s: homeassistant + shelly integration
 - k3s: authentik
@@ -18,8 +17,6 @@ version pin kea stork bind
 set up security updates
 
 put qemu guest agent on all vms
-
-truenas login session should last longer
 
 extra ambitious
 - get source ips working by removing masquerade tunnel system
