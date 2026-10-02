@@ -16,7 +16,7 @@ PROTECTED_DATASET = "{{ protected_dataset }}"
 STAGING_DATASET = "{{ backup_staging_data.dataset }}"
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-os.environ["RESTIC_PASSWORD"] = "pass"
+os.environ["RESTIC_PASSWORD"] = "{{ restic_backup_pass }}"
 os.environ["AWS_ACCESS_KEY_ID"] = "{{ s3_backup.access_key_id }}"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "{{ s3_backup.secret_access_key }}"
 
