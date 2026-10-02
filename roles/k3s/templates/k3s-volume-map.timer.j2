@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+
+[Timer]
+# shorthand is 'hourly'
+OnCalendar=*-*-* *:00:00
+
+[Install]
+WantedBy=timers.target

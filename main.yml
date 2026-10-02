@@ -1,9 +1,9 @@
-- name: set up truenas temp disk storage for warewulf nodes
-  hosts: storage
-  tasks:
-    - ansible.builtin.import_role:
-        name: truenas
-        tasks_from: warewulf_temp_storage
+# - name: set up truenas temp disk storage for warewulf nodes
+#   hosts: storage
+#   tasks:
+#     - ansible.builtin.import_role:
+#         name: truenas
+#         tasks_from: warewulf_temp_storage
 
 # consider merging with above?
 - name: setup k3s persistent storage
@@ -12,6 +12,13 @@
     - ansible.builtin.import_role:
         name: truenas
         tasks_from: k3s_persistent_storage
+
+- name: set up truenas snapshots and backup
+  hosts: storage
+  tasks:
+    - ansible.builtin.import_role:
+        name: truenas
+        tasks_from: backups
 
 - name: set up k3s control plane
   hosts: k3s_control_plane
@@ -23,26 +30,26 @@
         name: k3s
         tasks_from: k3s_control_plane
 
-- name: set up warewulf
-  hosts: warewulf_vm
-  gather_facts: false
-  roles:
-    - proxmox_vm
-  tasks:
-    - ansible.builtin.import_role:
-        name: warewulf
+# - name: set up warewulf
+#   hosts: warewulf_vm
+#   gather_facts: false
+#   roles:
+#     - proxmox_vm
+#   tasks:
+#     - ansible.builtin.import_role:
+#         name: warewulf
 
-- name: set up isc vm
-  hosts: isc_vm
-  gather_facts: false
-  roles:
-    - proxmox_vm
-  tasks:
-    - ansible.builtin.import_role:
-        name: isc
+# - name: set up isc vm
+#   hosts: isc_vm
+#   gather_facts: false
+#   roles:
+#     - proxmox_vm
+#   tasks:
+#     - ansible.builtin.import_role:
+#         name: isc
 
-- name: set up k3s agent vms
-  hosts: warewulf_nodes
-  gather_facts: false
-  roles:
-    - proxmox_vm
+# - name: set up k3s agent vms
+#   hosts: warewulf_nodes
+#   gather_facts: false
+#   roles:
+#     - proxmox_vm

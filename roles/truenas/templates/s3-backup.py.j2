@@ -1,0 +1,167 @@
+#!/usr/bin/env -S python3 -u
+# {{ ansible_managed }}
+
+import subprocess
+import json
+import os
+import sys
+import time
+from enum import Enum
+from dataclasses import dataclass
+from filelock import FileLock, Timeout
+from pathlib import Path
+from typing import Any
+
+PROTECTED_DATASET = "{{ protected_dataset }}"
+STAGING_DATASET = "{{ backup_staging_data.dataset }}"
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+os.environ["RESTIC_PASSWORD"] = "pass"
+os.environ["AWS_ACCESS_KEY_ID"] = "{{ s3_backup.access_key_id }}"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "{{ s3_backup.secret_access_key }}"
+
+
+class DatasetType(Enum):
+    FILESYSTEM = "filesystem"
+    VOLUME = "volume"
+
+
+@dataclass
+class Dataset():
+    name: str
+    dataset_type: DatasetType
+    mount_point: str
+
+
+def command(*cmd: str, allow_errors: bool = False, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(list(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **kwargs)
+    if not allow_errors and result.returncode != 0:
+        raise RuntimeError(f"{' '.join(cmd)}: {result.stderr}")
+    return result
+
+
+def restic_cmd(dataset: Dataset, *args: str, allow_errors: bool = False, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    repo = f"s3:{{ s3_backup.endpoint }}/{{ s3_backup.bucket }}/{dataset.name}"
+    return command("restic", "--repo", repo, *args, allow_errors=allow_errors, **kwargs)
+
+
+# TODO: this directly calls the internal api, and as such is unstable and should be replaced
+# with better logging once setup (monitoring stack alert?)
+def temp_alert(name: str):
+    payload = json.dumps({
+        "id": 0,
+        "name": name
+    })
+    command("midclt", "call", "alert.oneshot_create", "CloudBackupTaskFailed", payload)
+
+
+def temp_alert_clear():
+    command("midclt", "call", "alert.oneshot_delete", "CloudBackupTaskFailed", "0")
+
+
+def clean_up():
+    # delete clones
+    zfs_list = command("zfs", "list", "-H", "-o", "name", "-r", "-t", "volume", STAGING_DATASET)
+    for clone in zfs_list.stdout.splitlines():
+        command("zfs", "destroy", clone)
+
+    # delete snapshots
+    snapshot_exists = command("zfs", "list", f"{PROTECTED_DATASET}@s3-backup", allow_errors=True).returncode == 0
+    if snapshot_exists:
+        command("zfs", "destroy", "-r", f"{PROTECTED_DATASET}@s3-backup")
+
+
+def backup_dataset(dataset: Dataset, index: int) -> None:
+    snapshot_dir = f"{dataset.mount_point}/.zfs/snapshot/s3-backup"
+    if dataset.dataset_type == DatasetType.FILESYSTEM and not os.listdir(snapshot_dir):
+        print(f"skipping empty dataset {dataset.name}")
+        return
+
+    restic_repo_exists: bool = restic_cmd(dataset, "cat", "config", allow_errors=True).returncode == 0
+    if not restic_repo_exists:
+        print(f"creating backup repo for {dataset.name}")
+        restic_cmd(dataset, "init")
+
+    print(f"backing up {dataset.name}")
+    if dataset.dataset_type == DatasetType.FILESYSTEM:
+        snapshot_dir = f"{dataset.mount_point}/.zfs/snapshot/s3-backup"
+        restic_cmd(dataset, "backup", "--group-by", "", ".", cwd=snapshot_dir)
+    elif dataset.dataset_type == DatasetType.VOLUME:
+        clone_path = f"{STAGING_DATASET}/clone-{index}"
+        device_path = f"/dev/zvol/{clone_path}"
+        command("zfs", "clone", f"{dataset.name}@s3-backup", clone_path)
+        for _ in range(300):
+            if os.path.exists(device_path):
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError(f"device {device_path} didn't mount in time")
+        with open(device_path, "rb") as volume:
+            restic_cmd(dataset, "backup", "--group-by", "", "--stdin", "--stdin-filename", "volume", stdin=volume)
+    print(f"backed up {dataset.name}")
+
+    print(f"pruning {dataset.name}")
+    restic_cmd(
+        dataset, "forget", "--group-by", "", "--prune",
+        "--keep-daily", "{{ gfs_backup_retention.daily }}",
+        "--keep-weekly", "{{ gfs_backup_retention.weekly }}",
+        "--keep-monthly", "{{ gfs_backup_retention.monthly }}"
+    )
+    print(f"pruning finished for {dataset.name}")
+
+
+def backup_all() -> None:
+    print()
+    print("starting backup")
+
+    datasets: list[Dataset] = []
+    failed: list[Dataset] = []
+
+    try:
+        with FileLock(f"{SCRIPT_DIR}/s3-backup.lock", timeout=0):
+            clean_up()
+            try:
+                command("zfs", "snapshot", "-r", f"{PROTECTED_DATASET}@s3-backup")
+                    
+                zfs_list = command("zfs", "list", "-H", "-r", "-o", "name,type,mountpoint", PROTECTED_DATASET)
+
+                for line in zfs_list.stdout.splitlines():
+                    name, type_string, mount_point = line.split("\t")
+                    datasets.append(Dataset(name, DatasetType(type_string), mount_point))
+
+                def is_leaf(dataset: Dataset) -> bool:
+                    for test_dataset in datasets:
+                        if test_dataset.name.startswith(dataset.name + "/"):
+                            return False
+                    return True
+
+                for i in range(len(datasets)):
+                    dataset = datasets[i]
+                    if dataset.name == PROTECTED_DATASET or not is_leaf(dataset):
+                        continue
+
+                    try:
+                        backup_dataset(dataset, i)
+                    except Exception as exception:
+                        print(f"Failed to back up {dataset.name}: {exception}")
+                        failed.append(dataset)
+            finally:
+                clean_up()
+    except Timeout:
+        sys.exit("another backup is in progress")
+    except Exception as exception:
+        temp_alert("backup failed")
+        raise
+
+    if failed:
+        error_string = f"backup failed: {' '.join(dataset.name for dataset in failed)}"
+        print(error_string)
+        temp_alert(error_string)
+        sys.exit(1)
+
+    temp_alert_clear()
+    print("backup completed successfully")
+
+
+if __name__ == "__main__":
+    backup_all()

@@ -3,7 +3,7 @@ next feature buildout
 - k3s: grafana + prometheus + loki + alloy
 - k3s: homeassistant + shelly integration
 - k3s: authentik
-- k3s: argocd?
+- k3s: argocd? (maybe look into argocd operator? also need to get a better understanding of what an operator is and does)
 - pterodactyl vm
 
 possible future buildout
@@ -19,10 +19,14 @@ set up security updates
 
 put qemu guest agent on all vms
 
+truenas login session should last longer
+
 extra ambitious
 - get source ips working by removing masquerade tunnel system
 
 should hairpinning be for all internal services not just 80/443 to .253?
+
+decide if and remove no_log: true
 
 clean up numbering and associated stuff in bootstrap tasks
 

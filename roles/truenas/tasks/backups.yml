@@ -1,0 +1,119 @@
+- name: get protected dataset
+  vars:
+    payload:
+      - [name, "=", "{{ protected_dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
+  register: protected_dataset_query
+  changed_when: false
+
+- name: create protected dataset
+  vars:
+    payload:
+      name: "{{ protected_dataset }}"
+      type: FILESYSTEM
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  when: (protected_dataset_query.stdout | from_json) | length == 0
+  changed_when: true
+
+- name: get k3s snapshot tasks
+  vars:
+    payload:
+      - [dataset, "=", "{{ protected_dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.snapshottask.query, "{{ payload | to_json }}"]
+  register: snapshot_tasks
+  changed_when: false
+
+- name: create k3s snapshot tasks
+  vars:
+    payload:
+      dataset: "{{ protected_dataset }}"
+      recursive: true
+      lifetime_value: "{{ item.lifetime_days }}"
+      lifetime_unit: DAY
+      naming_schema: "{{ item.naming_schema }}"
+      allow_empty: false
+      schedule: "{{ item.schedule }}"
+  ansible.builtin.command:
+    argv: [midclt, call, pool.snapshottask.create, "{{ payload | to_json }}"]
+  loop: "{{ snapshot_tiers }}"
+  loop_control: 
+    label: "{{ item.naming_schema }}"
+  when: item.naming_schema not in (snapshot_tasks.stdout | from_json | map(attribute='naming_schema'))
+  changed_when: true
+
+- name: get scripts dataset
+  vars:
+    payload:
+      - [name, "=", "{{ scripts_data.dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
+  register: scripts_dataset
+  changed_when: false
+
+- name: create scripts dataset
+  vars:
+    payload:
+      name: "{{ scripts_data.dataset }}"
+      type: FILESYSTEM
+      create_ancestors: true
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  when: (scripts_dataset.stdout | from_json) | length == 0
+  changed_when: true
+
+- name: get backup staging dataset
+  vars:
+    payload:
+      - [name, "=", "{{ backup_staging_data.dataset }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.query, "{{ payload | to_json }}"]
+  register: backup_staging_dataset
+  changed_when: false
+
+- name: create backup staging dataset
+  vars:
+    payload:
+      name: "{{ backup_staging_data.dataset }}"
+      type: FILESYSTEM
+      create_ancestors: true
+  ansible.builtin.command:
+    argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
+  when: (backup_staging_dataset.stdout | from_json) | length == 0
+  changed_when: true
+
+- name: write s3 backup script
+  ansible.builtin.template:
+    src: s3-backup.py.j2
+    dest: "/mnt/{{ scripts_data.dataset }}/s3-backup.py"
+    owner: root
+    group: root
+    mode: "700"
+
+- name: get s3 backup cron job
+  vars:
+    payload:
+      - [command, "=", "{{ s3_backup.command }}"]
+  ansible.builtin.command:
+    argv: [midclt, call, cronjob.query, "{{ payload | to_json }}"]
+  register: s3_backup_cronjob
+  changed_when: false
+
+- name: create s3 backup cron job
+  vars:
+    payload:
+      user: root
+      command: "{{ s3_backup.command }}"
+      description: nightly s3 backup
+      schedule:
+        minute: "0"
+        hour: "0"
+        dom: "*"
+        month: "*"
+        dow: "*"
+  ansible.builtin.command:
+    argv: [midclt, call, cronjob.create, "{{ payload | to_json }}"]
+  when: (s3_backup_cronjob.stdout | from_json) | length == 0
+  changed_when: true

@@ -16,6 +16,7 @@
     payload:
       name: "{{ warewulf_temp_data.dataset }}"
       type: FILESYSTEM
+      create_ancestors: true
   ansible.builtin.command:
     argv: [midclt, call, pool.dataset.create, "{{ payload | to_json }}"]
   when: warewulf_temp_data.dataset not in warewulf_dataset_names

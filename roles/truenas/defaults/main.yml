@@ -1,3 +1,35 @@
 k3s_dataset: "{{ storage_pool.name }}/k3s"
 k3s_node_disk_gb: 16
 iscsi_portal_comment: andromeda-lan
+
+protected_dataset: "{{ storage_pool.name }}/protected"
+
+snapshot_tiers:
+  - naming_schema: auto-hourly-%Y%m%d-%H%M
+    lifetime_days: 2
+    schedule:
+      minute: "0"
+      hour: "*"
+      dom: "*"
+      month: "*"
+      dow: "*"
+  - naming_schema: auto-daily-%Y%m%d-%H%M
+    lifetime_days: 14
+    schedule:
+      minute: "0"
+      hour: "0"
+      dom: "*"
+      month: "*"
+      dow: "*"
+
+gfs_backup_retention:
+  daily: 7
+  weekly: 5
+  monthly: 12
+
+s3_backup:
+  endpoint: "{{ s3_endpoint }}"
+  bucket: andromeda-test
+  access_key_id: "{{ s3_access_key_id }}"
+  secret_access_key: "{{ s3_secret_access_key }}"
+  command: "/mnt/{{ scripts_data.dataset }}/s3-backup.py > /mnt/{{ scripts_data.dataset }}/s3-backup.log 2>&1"

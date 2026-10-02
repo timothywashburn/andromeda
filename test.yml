@@ -1,0 +1,11 @@
+- name: set up truenas snapshots and backup
+  hosts: storage
+  gather_facts: false
+  tasks:
+    - name: write s3 backup script
+      ansible.builtin.template:
+        src: ./roles/truenas/templates/s3-backup.py.j2
+        dest: "/mnt/{{ scripts_data.dataset }}/s3-backup.py"
+        owner: root
+        group: root
+        mode: "700"

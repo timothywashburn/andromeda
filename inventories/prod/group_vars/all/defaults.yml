@@ -24,9 +24,20 @@ markers_dir: "{{ inventory_dir }}/markers"
 hardening_lockout_guard_marker: "{{ markers_dir }}/hardening-lockout-guard"
 
 warewulf_temp_data:
-  dataset: "{{ storage_pool.name }}/warewulf-node-temp"
+  dataset: "{{ storage_pool.name }}/unprotected/warewulf-node-temp"
   storage_gb: 16
 
 k3s_persistent_data:
-  dataset_suffix: "k3s-data"
+  dataset_suffix: "protected/k3s-data"
   dataset: "{{ storage_pool.name }}/{{ k3s_persistent_data.dataset_suffix }}"
+
+k3s_metadata:
+  dataset_suffix: "protected/k3s-volume-metadata"
+  dataset: "{{ storage_pool.name }}/{{ k3s_metadata.dataset_suffix }}"
+  mount: /mnt/k3s-metadata
+
+scripts_data:
+  dataset: "{{ storage_pool.name }}/unprotected/scripts"
+
+backup_staging_data:
+  dataset: "{{ storage_pool.name }}/unprotected/backup-staging"

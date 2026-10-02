@@ -151,3 +151,6 @@
           metadata:
             annotations:
               storageclass.kubernetes.io/is-default-class: "false"
+
+- name: set up k3s volume map script
+  ansible.builtin.import_tasks: k3s_volume_map.yml

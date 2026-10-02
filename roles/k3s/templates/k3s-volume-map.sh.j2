@@ -1,0 +1,19 @@
+#!/bin/sh
+# {{ ansible_managed }}
+
+set -eu
+
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+kubectl get pv,pvc -A -o yaml > "{{ k3s_metadata.mount }}/volume-map.yaml.tmp"
+mv "{{ k3s_metadata.mount }}/volume-map.yaml.tmp" "{{ k3s_metadata.mount }}/volume-map.yaml"
+
+kubectl get pv -o custom-columns=\
+PV:.metadata.name,\
+NAMESPACE:.spec.claimRef.namespace,\
+CLAIM:.spec.claimRef.name,\
+CLASS:.spec.storageClassName,\
+SIZE:.spec.capacity.storage,\
+HANDLE:.spec.csi.volumeHandle \
+> "{{ k3s_metadata.mount }}/volume-map-ref.txt.tmp"
+mv "{{ k3s_metadata.mount }}/volume-map-ref.txt.tmp" "{{ k3s_metadata.mount }}/volume-map-ref.txt"

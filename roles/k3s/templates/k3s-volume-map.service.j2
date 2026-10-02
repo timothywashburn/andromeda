@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+
+[Unit]
+RequiresMountsFor={{ k3s_metadata.mount }}
+After=k3s.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/k3s-volume-map.sh

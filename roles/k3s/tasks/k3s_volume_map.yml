@@ -1,0 +1,29 @@
+- name: mount k3s metadata dataset
+  ansible.posix.mount:
+    path: "{{ k3s_metadata.mount }}"
+    src: "{{ hostvars[groups.storage | first].ansible_host }}:/mnt/{{ hostvars[groups.storage | first].storage_pool.name }}/{{ k3s_metadata.dataset_suffix }}"
+    fstype: nfs
+    opts: defaults,nofail
+    state: mounted
+
+- name: write volume map script
+  ansible.builtin.template:
+    src: k3s-volume-map.sh.j2
+    dest: /usr/local/bin/k3s-volume-map.sh
+    mode: "755"
+
+- name: write volume map systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "644"
+  loop:
+    - k3s-volume-map.service
+    - k3s-volume-map.timer
+
+- name: enable volume map timer
+  ansible.builtin.systemd_service:
+    name: k3s-volume-map.timer
+    enabled: true
+    state: started
+    daemon_reload: true
