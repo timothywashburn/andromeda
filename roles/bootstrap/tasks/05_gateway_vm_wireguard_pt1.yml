@@ -21,7 +21,6 @@
       oxlorg.opnsense.list:
         target: wireguard_server
       register: wg_instances
-      no_log: true
 
     - name: set public key fact if exists
       ansible.builtin.set_fact:
@@ -30,7 +29,6 @@
       vars:
         found: "{{ wg_servers | selectattr('name', 'eq', 'tunnel') | list }}"
       when: found | length > 0
-      no_log: true
     
     - name: create a keypair directly with api
       oxlorg.opnsense.raw:
@@ -39,14 +37,12 @@
         command: keyPair
         action: get
       register: wg_keypair
-      no_log: true
       when: wg_public_key is undefined
         
     - name: set keys as facts
       ansible.builtin.set_fact:
         wg_private_key: "{{ wg_keypair.response.privkey }}"
         wg_public_key: "{{ wg_keypair.response.pubkey }}"
-      no_log: true
       when: wg_keypair is not skipped
 
     - name: create wireguard server

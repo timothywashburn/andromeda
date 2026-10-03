@@ -23,8 +23,6 @@ extra ambitious
 
 should hairpinning be for all internal services not just 80/443 to .253?
 
-decide if and remove no_log: true
-
 clean up numbering and associated stuff in bootstrap tasks
 
 test to make sure opnsense is still secure with ssh on

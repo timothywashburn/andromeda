@@ -86,7 +86,6 @@
         argv: [midclt, call, api_key.create, "{{ payload | to_json }}"]
       delegate_to: "{{ groups.storage | first }}"
       register: new_api_key
-      no_log: true
       when: api_key_secret.resources | length == 0
       changed_when: true
 
@@ -100,7 +99,6 @@
             namespace: truenas-csi
           stringData:
             api-key: "{{ (new_api_key.stdout | from_json).key }}"
-      no_log: true
       when: api_key_secret.resources | length == 0
 
     - name: add truenas csi helm repo

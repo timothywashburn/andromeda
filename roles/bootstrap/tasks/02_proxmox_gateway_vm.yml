@@ -60,5 +60,4 @@
           force: true
           restart: true
       delegate_to: localhost
-      no_log: true
       when: pve_cert is changed

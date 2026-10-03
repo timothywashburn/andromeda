@@ -26,14 +26,12 @@
   loop:
     - /etc/wireguard/privatekey
     - /etc/wireguard/publickey
-  no_log: true
   register: wg_keys_b64
 
 - name: set wireguard key facts
   ansible.builtin.set_fact:
     wg_private_key: "{{ wg_keys_b64.results[0].content | b64decode | trim }}"
     wg_public_key: "{{ wg_keys_b64.results[1].content | b64decode | trim }}"
-  no_log: true
 
 - name: write wireguard config
   ansible.builtin.template:

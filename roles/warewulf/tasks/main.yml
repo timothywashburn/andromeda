@@ -53,7 +53,6 @@
 - name: set root password in node image
   ansible.builtin.command: >-
     wwctl image exec --build=false {{ warewulf_image_name }} -- /bin/bash -c "echo root:{{ temp_password }} | chpasswd"
-  no_log: true
   notify: build node image
   changed_when: false # this is not true
 
@@ -183,14 +182,12 @@
         path: /var/lib/rancher/k3s/server/node-token
       delegate_to: "{{ groups.k3s_control_plane | first }}"
       register: k3s_token_file
-      no_log: true
 
     - name: write k3s agent config
       ansible.builtin.template:
         src: 50-k3s-agent-config.yaml.j2
         dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/rancher/k3s/config.yaml.d/50-k3s-agent-config.yaml"
         mode: "600"
-      no_log: true
       notify: build overlays
 
     - name: write k3s node password
@@ -198,7 +195,6 @@
         src: k3s-node-password.ww.j2
         dest: "{{ warewulf_overlay_dir }}/k3s.agent/rootfs/etc/rancher/node/password.ww"
         mode: "600"
-      no_log: true
       notify: build overlays
 
 - name: write nodes config

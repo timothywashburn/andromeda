@@ -56,7 +56,6 @@
       community.postgresql.postgresql_user:
         name: stork
         password: "{{ stork_db_password }}"
-      no_log: true
 
     - name: create stork database
       community.postgresql.postgresql_db:
@@ -75,7 +74,6 @@
     owner: _kea
     group: _kea
     mode: "640"
-  no_log: true
   notify: restart kea ctrl agent
 
 - name: write kea dhcp4 config
@@ -102,7 +100,6 @@
     src: server.env.j2
     dest: /etc/stork/server.env
     mode: "640"
-  no_log: true
   notify: restart stork server
 
 - name: enable stork server
@@ -131,7 +128,6 @@
       community.postgresql.postgresql_query:
         query: SELECT content FROM secret WHERE name = 'srvtkn'
       register: stork_server_token
-      no_log: true
       changed_when: false
 
 - name: write stork agent config
@@ -155,7 +151,6 @@
     --server-token {{ stork_server_token.query_result[0].content }}
   become: true
   become_user: stork-agent
-  no_log: true
   when: not stork_agent_cert.stat.exists
   changed_when: true
 

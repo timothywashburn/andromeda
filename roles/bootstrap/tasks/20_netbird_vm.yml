@@ -80,7 +80,6 @@
           pat_expire_in: 365
       register: netbird_admin_account
       when: netbird_pat is not defined
-      no_log: true
 
     - name: save netbird personal access token
       ansible.builtin.copy:
@@ -91,13 +90,11 @@
         mode: "600"
       delegate_to: localhost
       when: netbird_admin_account is not skipped
-      no_log: true
       diff: false
 
     - name: load netbird personal access token
       ansible.builtin.set_fact:
         netbird_pat: "{{ netbird_admin_account.json.personal_access_token }}"
-      no_log: true
       when: netbird_admin_account is not skipped
 
     - name: increase netbird peer session expiration 
