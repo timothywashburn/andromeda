@@ -26,9 +26,6 @@ clean up numbering and associated stuff in bootstrap tasks
 test to make sure opnsense is still secure with ssh on
 EDIT: should be as secure as other things with pw auth. need to figure out what I'm going to do here
 
-right now I'm doing the following (see below); wondering if metallb would be better. seems like this could be binding to all internal ips. maybe that's ok?
-k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"
-
 rename gateway node to gateway host (unsure if this has to be on rebuild probably not?)
 also look at on rebuild
 - check todos (I think there's at least one there)
