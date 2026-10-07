@@ -107,6 +107,7 @@
       user: root
       command: "{{ s3_backup.command }}"
       description: nightly s3 backup
+      stdout: false # terrible wording; this actually turns off IGNORING stdout
       schedule:
         minute: "0"
         hour: "0"
