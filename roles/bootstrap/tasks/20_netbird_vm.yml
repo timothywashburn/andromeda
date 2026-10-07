@@ -6,19 +6,6 @@
     - name: install docker
       ansible.builtin.import_tasks: install_docker.yml
 
-    - name: install packages
-      ansible.builtin.apt:
-        name:
-          - qemu-guest-agent
-        state: present
-        update_cache: true
-        
-    - name: enable qemu guest agent
-      ansible.builtin.systemd_service:
-        name: qemu-guest-agent
-        enabled: true
-        state: started
-
     - name: create netbird directory
       ansible.builtin.file:
         path: /etc/netbird

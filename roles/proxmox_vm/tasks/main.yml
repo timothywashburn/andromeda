@@ -102,6 +102,20 @@
         timeout: "{{ vm_config.wait.timeout }}"
       when: vm_config.wait.method | default('') == "connection"
 
+    - name: install qemu guest agent
+      ansible.builtin.package:
+        name: qemu-guest-agent
+        state: present
+        update_cache: true
+      when: vm_config.install_agent
+
+    - name: enable qemu guest agent
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        enabled: true
+        state: started
+      when: vm_config.install_agent
+
     - name: wait for ssh port
       ansible.builtin.wait_for:
         host: "{{ ansible_host }}"

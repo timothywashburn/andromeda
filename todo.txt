@@ -14,8 +14,6 @@ bugs:
 
 set up security updates
 
-put qemu guest agent on all vms
-
 extra ambitious
 - get source ips working by removing masquerade tunnel system
 

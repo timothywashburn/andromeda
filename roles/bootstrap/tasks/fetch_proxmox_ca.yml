@@ -1,7 +1,14 @@
-- name: copy proxmox ca to controller
-  ansible.builtin.fetch:
+- name: read proxmox ca from gateway host
+  ansible.builtin.slurp:
     src: /etc/pve/pve-root-ca.pem
-    dest: "{{ local_proxmox_ca_path }}"
-    flat: true
+  register: proxmox_ca
   delegate_to: "{{ groups.gateway_host | first }}"
+  run_once: true
+
+- name: write proxmox ca to localhost
+  ansible.builtin.copy:
+    content: "{{ proxmox_ca.content | b64decode }}"
+    dest: "{{ local_proxmox_ca_path }}"
+    mode: "644"
+  delegate_to: localhost
   run_once: true

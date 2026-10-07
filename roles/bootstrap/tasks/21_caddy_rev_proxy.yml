@@ -10,16 +10,9 @@
 - name: install packages
   ansible.builtin.apt:
     name:
-      - qemu-guest-agent
       - caddy
     state: present
     update_cache: true
-
-- name: enable qemu guest agent
-  ansible.builtin.systemd_service:
-    name: qemu-guest-agent
-    enabled: true
-    state: started
 
 - name: setup caddy config
   ansible.builtin.import_role:

@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+node-name: control-plane
+node-taint:
+  - CriticalAddonsOnly=true:NoExecute
+disable:
+  - local-storage

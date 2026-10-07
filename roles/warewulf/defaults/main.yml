@@ -39,3 +39,4 @@ warewulf_image_packages:
   - bash-completion
   - net-tools
   - systemd-timesyncd # ntp time sync
+  - qemu-guest-agent

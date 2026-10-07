@@ -1,14 +1,8 @@
 - name: install packages
   ansible.builtin.apt:
     name:
-      - qemu-guest-agent
       - bind9
     update_cache: true
-
-- name: start qemu guest agent
-  ansible.builtin.systemd_service:
-    name: qemu-guest-agent
-    state: started
 
 - name: create loopback zone
   ansible.builtin.template:

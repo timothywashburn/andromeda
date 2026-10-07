@@ -6,6 +6,9 @@ vm_defaults:
   agent: true
   net:
     net0: virtio,bridge=vmbr1,firewall=0
+  
+  # whether to auto install qemu-guest-agent
+  install_agent: false
 
 vm_templates:
   cloud:
@@ -28,6 +31,8 @@ vm_templates:
     wait:
       method: connection
       timeout: 30
+    
+    install_agent: true
 
   iso:
     disk: empty
