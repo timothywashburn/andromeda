@@ -12,8 +12,6 @@ possible future buildout
 bugs:
 - warewulf nodes fail if truenas isn't up, possibly control plane too?
 
-version pin kea stork bind
-
 set up security updates
 
 put qemu guest agent on all vms

@@ -6,7 +6,7 @@
 
 - name: add kea repository
   ansible.builtin.deb822_repository:
-    name: kea-3-0
+    name: "{{ kea_repo }}"
     types: deb
     uris: "{{ kea_repo_url }}"
     suites: "{{ debian_cloud_image.suite }}"
