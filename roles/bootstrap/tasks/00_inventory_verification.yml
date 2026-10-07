@@ -1,10 +1,10 @@
 - name: assert singleton groups
   vars:
     singleton_groups:
-      - gateway_node
-      - mgmt_node
-      - storage_node
-      - public
+      - gateway_host
+      - mgmt
+      - storage
+      - public_relay
   ansible.builtin.assert:
     that: groups[item] | default([]) | length == 1
     fail_msg: "role {{ item }} must have exactly one host"

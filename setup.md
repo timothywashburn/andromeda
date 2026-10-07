@@ -1,5 +1,5 @@
 manual bootstrapping
-- install proxmox to gateway node
+- install proxmox to gateway host
   - hostname: `pavo.internal`
   - ip/gateway/dns should be setup normally to allow internet, make sure the node has a static lease from the router
 - install truenas to storage node

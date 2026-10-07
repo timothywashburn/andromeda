@@ -8,14 +8,14 @@ opnsense_module_defaults:
   api_secret: "{{ opnsense_api_secret }}"
   ssl_verify: false
 
-local_proxmox_ca_path: "/tmp/proxmox-ca-{{ groups.gateway_node | first }}.pem"
+local_proxmox_ca_path: "/tmp/proxmox-ca-{{ groups.gateway_host | first }}.pem"
 proxmox_module_defaults:
-  api_host: "{{ hostvars[groups.gateway_node | first].ansible_host }}"
+  api_host: "{{ hostvars[groups.gateway_host | first].ansible_host }}"
   api_user: root@pam
   api_password: "{{ proxmox_password }}"
   ca_path: "{{ local_proxmox_ca_path }}"
 
-opnsense_api_delegate: "{{ groups.gateway_node | first }}"
+opnsense_api_delegate: "{{ groups.gateway_host | first }}"
 
 dns_server: "{{ hostvars[groups.isc_vm | first].ansible_host }}"
 k3s_traefik: "{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:80"

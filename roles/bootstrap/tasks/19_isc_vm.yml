@@ -31,4 +31,4 @@
     src: resolv.conf.j2
     dest: /etc/resolv.conf
     mode: "644"
-  delegate_to: "{{ groups.gateway_node | first }}"
+  delegate_to: "{{ groups.gateway_host | first }}"

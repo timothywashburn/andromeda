@@ -8,7 +8,7 @@
 #         tasks_from: 00_inventory_verification.yml
 
 - name: configure gateway host for bootstrapping
-  hosts: gateway_node
+  hosts: gateway_host
   gather_facts: false
   tasks:
     - name: set gateway host to non internal ip
@@ -17,26 +17,26 @@
       when: not hardening_lockout_guard_marker is exists
 
 - name: configure internal nodes for bootstrapping
-  hosts: internal:!gateway_node
+  hosts: internal:!gateway_host
   gather_facts: false
   tasks:
     - ansible.builtin.set_fact:
         ansible_ssh_common_args: >-
-          -J root@{{ hostvars[groups.gateway_node | first].ansible_host }}
+          -J root@{{ hostvars[groups.gateway_host | first].ansible_host }}
           -o StrictHostKeyChecking=accept-new
       when: not hardening_lockout_guard_marker is exists
 
 # ==== BEGIN BOOTSTRAPPING ====
 
 - name: gateway host setup
-  hosts: gateway_node
+  hosts: gateway_host
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
         tasks_from: 01_proxmox_host.yml
 
 - name: proxmox bootstrap
-  hosts: gateway_node
+  hosts: gateway_host
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -102,7 +102,7 @@
         tasks_from: 09_forward_relay_traffic.yml
 
 - name: switch proxmox gateway
-  hosts: gateway_node
+  hosts: gateway_host
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
@@ -143,7 +143,7 @@
 # ==== BEGIN HARDENING ====
 
 - name: harden gateway host
-  hosts: gateway_node
+  hosts: gateway_host
   gather_facts: false
   tasks:
     - ansible.builtin.import_role:
