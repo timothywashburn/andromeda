@@ -5,7 +5,7 @@ ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
 netbird_server_version: "0.77.1"
 netbird_dashboard_version: "v2.91.1"
 kea_version: "3.0.4"
-kea_repo: kea-3-0
+kea_repo: "kea-3-0"
 stork_version: "2.4.1"
 warewulf_version: "4.7.0"
 k3s_version: "v1.36.4+k3s1" # this affects both the control plane vm and warewulf agent nodes

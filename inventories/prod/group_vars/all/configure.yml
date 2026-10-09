@@ -19,10 +19,6 @@ services:
     protocol: tcp
     ports: "80,443"
     dest: "{{ hostvars[groups.rev_proxy_vm | first].ansible_host }}"
-  - name: bmc
-    protocol: tcp
-    ports: "25565,31400-31499"
-    dest: "10.127.0.249"
 
 proxy_routes:
   - host: "{{ netbird_domain }}"
