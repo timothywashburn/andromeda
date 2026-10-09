@@ -1,5 +1,6 @@
 .ansible/
 .idea/
+.vscode/
 __pycache__/
 markers/
 .DS_Store

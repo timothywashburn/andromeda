@@ -139,6 +139,13 @@
                 protocol: nfs
                 datasetPath: "{{ k3s_persistent_data.dataset_suffix }}/nfs"
                 compression: LZ4
+            - name: truenas-nfs-unprotected
+              reclaimPolicy: Delete
+              volumeBindingMode: Immediate
+              parameters:
+                protocol: nfs
+                datasetPath: "{{ k3s_unprotected_data.dataset_suffix }}/nfs"
+                compression: LZ4
             - name: truenas-iscsi
               reclaimPolicy: Delete
               volumeBindingMode: Immediate
@@ -150,6 +157,17 @@
                 compression: LZ4
                 volblocksize: 16K
                 sparse: true
+            - name: truenas-iscsi-unprotected
+              reclaimPolicy: Delete
+              volumeBindingMode: Immediate
+              mountOptions:
+                - discard
+              parameters:
+                protocol: iscsi
+                datasetPath: "{{ k3s_unprotected_data.dataset_suffix }}/iscsi"
+                compression: LZ4
+                volblocksize: 16K
+                sparse: true
     
     - name: add argo helm repo
       kubernetes.core.helm_repository:
@@ -158,18 +176,34 @@
 
     - name: check if argo is already running
       kubernetes.core.k8s_info:
-        kind: Deployment
         name: argocd-server
+        kind: Deployment
         namespace: argocd
       register: argo_running
 
     - name: check if argo base application exists
       kubernetes.core.k8s_info:
         api_version: argoproj.io/v1alpha1
-        kind: Application
         name: base
+        kind: Application
         namespace: argocd
       register: argo_base
+
+    - name: get all manifest templates
+      ansible.builtin.find:
+        paths: "{{ role_path }}/templates/manifests"
+        recurse: true
+        file_type: file
+      delegate_to: localhost
+      register: manifest_templates
+
+    - name: apply manifests
+      kubernetes.core.k8s:
+        state: present
+        template: "{{ item.path }}"
+      loop: "{{ manifest_templates.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path | relpath(playbook_dir) }}"
 
     - name: "bootstrap argo: initial install"
       vars:

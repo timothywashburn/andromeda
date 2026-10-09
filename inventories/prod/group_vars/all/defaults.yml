@@ -31,6 +31,10 @@ k3s_persistent_data:
   dataset_suffix: "protected/k3s-data"
   dataset: "{{ storage_pool.name }}/{{ k3s_persistent_data.dataset_suffix }}"
 
+k3s_unprotected_data:
+  dataset_suffix: "unprotected/k3s-data"
+  dataset: "{{ storage_pool.name }}/{{ k3s_unprotected_data.dataset_suffix }}"
+
 k3s_metadata:
   dataset_suffix: "protected/k3s-volume-metadata"
   dataset: "{{ storage_pool.name }}/{{ k3s_metadata.dataset_suffix }}"

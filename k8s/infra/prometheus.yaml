@@ -1,0 +1,62 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus
+    targetRevision: 29.36.1
+    helm:
+      valuesObject:
+        server:
+          extraFlags:
+            - web.enable-lifecycle
+            - web.enable-remote-write-receiver
+          persistentVolume:
+            storageClass: truenas-iscsi-unprotected
+          service:
+            type: LoadBalancer
+            servicePort: 9090
+
+        scrapeConfigs:
+          prometheus:
+            enabled: true
+          kubernetes-api-servers:
+            enabled: false
+          kubernetes-nodes:
+            enabled: false
+          kubernetes-nodes-cadvisor:
+            enabled: false
+          kubernetes-service-endpoints:
+            enabled: false
+          kubernetes-service-endpoints-slow:
+            enabled: false
+          prometheus-pushgateway:
+            enabled: false
+          kubernetes-services:
+            enabled: false
+          kubernetes-pods:
+            enabled: false
+          kubernetes-pods-slow:
+            enabled: false
+        
+        # subcharts
+        alertmanager:
+          enabled: false
+        kube-state-metrics:
+          enabled: false
+        prometheus-node-exporter:
+          enabled: false
+        prometheus-pushgateway:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: true
