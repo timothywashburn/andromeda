@@ -28,10 +28,9 @@ spec:
             datasources:
             - name: Prometheus
               type: prometheus
+              uid: prometheus
               url: http://prometheus-server:9090
               isDefault: true
-        
-        # TODO: unsure if this is temporary (because of dashboard below)
         dashboardProviders:
           dashboardproviders.yaml:
             apiVersion: 1
@@ -39,13 +38,15 @@ spec:
               - name: default
                 options:
                   path: /var/lib/grafana/dashboards/default
-            
-        # TODO: temporary dashboard
+        # TODO: temporary?
         dashboards:
           default:
             node-exporter-full:
               gnetId: 1860
               revision: 45
+        sidecar:
+          dashboards:
+            enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

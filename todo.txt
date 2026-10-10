@@ -14,6 +14,9 @@ bugs:
 
 set up security updates
 
+seems like project root is getting cluttered; should probabably look into moving ansible stuff into ansible/
+possibly clarify that k8s is applications and 
+
 extra ambitious
 - get source ips working by removing masquerade tunnel system
 
