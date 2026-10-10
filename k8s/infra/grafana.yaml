@@ -12,6 +12,8 @@ spec:
     targetRevision: 13.4.0
     helm:
       valuesObject:
+        deploymentStrategy:
+          type: Recreate
         service:
           type: LoadBalancer
           port: 3000
