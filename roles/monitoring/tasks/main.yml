@@ -1,0 +1,32 @@
+- name: add grafana repository for alloy
+  ansible.builtin.deb822_repository:
+    name: grafana
+    types: deb
+    uris: https://apt.grafana.com
+    suites: stable
+    components: main
+    signed_by: https://apt.grafana.com/gpg.key
+
+- name: pin alloy version
+  ansible.builtin.template:
+    src: alloy.pref.j2
+    dest: /etc/apt/preferences.d/alloy.pref
+    mode: "644"
+
+- name: install alloy
+  ansible.builtin.apt:
+    name: alloy
+    update_cache: true
+
+- name: write alloy config
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: /etc/alloy/config.alloy
+    mode: "644"
+  notify: restart alloy
+
+- name: start alloy 
+  ansible.builtin.systemd_service:
+    name: alloy
+    enabled: true
+    state: started

@@ -1,0 +1,19 @@
+prometheus.exporter.unix "node" { }
+
+prometheus.scrape "node" {
+    targets = prometheus.exporter.unix.node.targets
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+// prometheus.exporter.self "alloy" { }
+
+// prometheus.scrape "alloy" {
+//     targets = prometheus.exporter.self.alloy.targets
+//     forward_to = [prometheus.remote_write.prometheus.receiver]
+// }
+
+prometheus.remote_write "prometheus" {
+    endpoint {
+        url = "http://{{ hostvars[groups.k3s_control_plane | first].ansible_host }}:9090/api/v1/write"
+    }
+}

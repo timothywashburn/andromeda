@@ -53,3 +53,10 @@
   gather_facts: false
   roles:
     - proxmox_vm
+
+# TODO: finish implementation
+- name: test alloy setup on proxmox host
+  hosts: mgmt
+  tasks:
+    - ansible.builtin.import_role:
+        name: monitoring

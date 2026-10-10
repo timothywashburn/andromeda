@@ -9,6 +9,7 @@ kea_repo: "kea-3-0"
 stork_version: "2.4.1"
 warewulf_version: "4.7.0"
 k3s_version: "v1.36.4+k3s1" # this affects both the control plane vm and warewulf agent nodes
+alloy_version: "1.20.1"
 
 timezone: America/Los_Angeles
 
