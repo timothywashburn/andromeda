@@ -11,6 +11,9 @@ spec:
     helm:
       valuesObject:
         configs:
+          cm:
+            timeout.reconciliation: 30s
+            timeout.reconciliation.jitter: 5s
           params:
             server.insecure: true
         server:
